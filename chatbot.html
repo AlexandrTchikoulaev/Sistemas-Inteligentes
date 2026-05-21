@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SNS24 – Chatbot P2 (RAG + LLM)</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --green:       #059669;
+  --green-light: #d1fae5;
+  --green-mid:   #10b981;
+  --green-dark:  #065f46;
+  --bg:          #f0fdf4;
+  --surface:     #ffffff;
+  --surface2:    #f8fafc;
+  --border:      #e2e8f0;
+  --border2:     #cbd5e1;
+  --text:        #0f172a;
+  --text-mid:    #475569;
+  --text-dim:    #94a3b8;
+  --mono:        'IBM Plex Mono', monospace;
+  --sans:        'DM Sans', sans-serif;
+  --c-em:    #dc2626;
+  --c-mu:    #ea580c;
+  --c-ur:    #d97706;
+  --c-pu:    #2563eb;
+  --c-sa:    #059669;
+  --purple:  #7c3aed;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  overflow: hidden;
+}
+
+/* ── Topbar ── */
+#topbar {
+  background: var(--surface);
+  border-bottom: 1.5px solid var(--border);
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 24px; height: 60px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon {
+  width: 34px; height: 34px; background: var(--purple); border-radius: 9px;
+  display: flex; align-items: center; justify-content: center; font-size: 17px;
+}
+.logo-text  { font-size: 14px; font-weight: 800; color: var(--text); }
+.logo-text span { color: var(--purple); }
+.logo-sub   { font-size: 10.5px; color: var(--text-dim); font-weight: 500; margin-top: 1px; }
+.spacer { flex: 1; }
+
+.back-btn {
+  font-family: var(--sans); font-size: 12.5px; font-weight: 700;
+  padding: 7px 16px; border-radius: 8px;
+  border: 1.5px solid var(--border2); color: var(--text-mid);
+  background: var(--surface2); cursor: pointer; text-decoration: none;
+  display: flex; align-items: center; gap: 6px; transition: all .13s;
+}
+.back-btn:hover { border-color: var(--green); color: var(--green); background: var(--green-light); }
+
+.status-pill {
+  display: flex; align-items: center; gap: 6px;
+  border-radius: 20px; padding: 4px 12px;
+  font-size: 11px; font-weight: 600; border: 1px solid;
+}
+.status-pill.ok    { background: var(--green-light); border-color: #a7f3d0; color: var(--green-dark); }
+.status-pill.warn  { background: #fef9c3;            border-color: #fcd34d; color: #92400e; }
+.status-pill.err   { background: #fff5f5;            border-color: #fca5a5; color: var(--c-em); }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; }
+.ok   .status-dot { background: var(--green); animation: blink 2s infinite; }
+.warn .status-dot { background: #d97706; }
+.err  .status-dot { background: var(--c-em); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ── Layout ── */
+#app {
+  display: flex; padding-top: 60px;
+  height: 100vh; overflow: hidden;
+}
+
+/* ── Sidebar ── */
+#sidebar {
+  width: 270px; flex-shrink: 0;
+  background: var(--surface); border-right: 1.5px solid var(--border);
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.sb-sec { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.sb-lbl {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px;
+}
+
+/* Sobre o sistema */
+.about-box {
+  font-size: 11.5px; color: var(--text-mid); line-height: 1.65;
+}
+.about-tag {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  padding: 2px 8px; border-radius: 5px; margin-bottom: 6px;
+  background: #ede9fe; color: var(--purple); border: 1px solid #c4b5fd;
+}
+
+/* Sintomas */
+#sint-list { display: flex; flex-direction: column; gap: 5px; }
+.sint-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 8px; border-radius: 7px; font-size: 11.5px; font-weight: 500;
+}
+.sint-pres { background: #f0fdf4; color: #15803d; border: 1px solid #a7f3d0; }
+.sint-aus  { background: #f8fafc; color: var(--text-dim); border: 1px solid var(--border); text-decoration: line-through; }
+.sint-dot  { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.sint-pres .sint-dot { background: var(--green); }
+.sint-aus  .sint-dot { background: var(--border2); }
+.sint-empty { font-size: 11.5px; color: var(--text-dim); padding: 4px 0; }
+
+/* Resultado MYCIN */
+#resultado-box { padding: 14px 16px; }
+.res-card {
+  border-radius: 11px; padding: 12px 14px; border: 2px solid;
+}
+.res-nivel { font-size: 13px; font-weight: 800; margin-bottom: 3px; }
+.res-rec   { font-size: 11.5px; font-weight: 500; color: var(--text-mid); line-height: 1.5; }
+.res-cf    { font-family: var(--mono); font-size: 20px; font-weight: 700; margin-top: 8px; }
+.res-cf-lbl{ font-size: 9px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;
+             color: var(--text-dim); }
+.res-mycin-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 9.5px; font-weight: 700; padding: 2px 8px; border-radius: 5px;
+  background: #ede9fe; color: var(--purple); border: 1px solid #c4b5fd; margin-top: 8px;
+}
+.res-vazio { font-size: 11.5px; color: var(--text-dim); }
+
+/* ── Feed principal ── */
+#main {
+  flex: 1; display: flex; flex-direction: column;
+  overflow: hidden; min-width: 0;
+}
+
+#feed {
+  flex: 1; overflow-y: auto; padding: 24px 28px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+/* Mensagens */
+.msg-wrap { display: flex; }
+.msg-wrap.user { justify-content: flex-end; }
+.msg-wrap.bot  { justify-content: flex-start; }
+
+.msg-bubble {
+  max-width: 72%; padding: 12px 16px;
+  border-radius: 16px; font-size: 14px; line-height: 1.65; font-weight: 500;
+}
+.msg-wrap.user .msg-bubble {
+  background: var(--purple); color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.msg-wrap.bot .msg-bubble {
+  background: var(--surface); border: 1.5px solid var(--border);
+  color: var(--text); border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.06);
+}
+.msg-wrap.bot .msg-bubble.emergency {
+  border-color: var(--c-em); background: #fff5f5;
+}
+
+/* Typing indicator */
+.typing-wrap { display: flex; gap: 10px; align-items: center; }
+.typing-bubble {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 16px; border-bottom-left-radius: 4px;
+  padding: 14px 18px; display: flex; gap: 5px; align-items: center;
+  box-shadow: 0 1px 6px rgba(0,0,0,.06);
+}
+.dot-anim {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim);
+  animation: bounce 1.2s infinite;
+}
+.dot-anim:nth-child(2) { animation-delay: .15s; }
+.dot-anim:nth-child(3) { animation-delay: .30s; }
+@keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+
+/* Avatar */
+.avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 14px;
+  background: #ede9fe; border: 1.5px solid #c4b5fd; margin-top: 2px;
+}
+.msg-wrap.user { gap: 10px; }
+.msg-wrap.bot  { gap: 10px; }
+
+/* Card boas-vindas */
+.welcome-card {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 14px; padding: 20px 22px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+}
+.welcome-title { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+.welcome-sub   { font-size: 13px; color: var(--text-mid); line-height: 1.6; }
+.welcome-badges { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 600; padding: 4px 11px; border-radius: 20px; border: 1px solid;
+}
+.badge-purple { background: #ede9fe; border-color: #c4b5fd; color: var(--purple); }
+.badge-green  { background: var(--green-light); border-color: #a7f3d0; color: var(--green-dark); }
+.badge-orange { background: #fff7ed; border-color: #fdba74; color: #9a3412; }
+
+/* ── Input area ── */
+#input-area {
+  background: var(--surface); border-top: 1.5px solid var(--border);
+  padding: 14px 28px 16px;
+  box-shadow: 0 -2px 12px rgba(0,0,0,.06);
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+#input-row { display: flex; gap: 10px; align-items: flex-end; }
+
+#msg-input {
+  flex: 1; font-family: var(--sans); font-size: 14px;
+  padding: 11px 16px; border: 1.5px solid var(--border2);
+  border-radius: 12px; outline: none; resize: none;
+  line-height: 1.5; min-height: 46px; max-height: 120px;
+  transition: border-color .15s;
+  background: var(--surface2);
+}
+#msg-input:focus { border-color: var(--purple); background: #fff; }
+#msg-input::placeholder { color: var(--text-dim); }
+#msg-input:disabled { opacity: .5; cursor: not-allowed; }
+
+#btn-send {
+  font-family: var(--sans); font-size: 13px; font-weight: 700;
+  padding: 11px 22px; border-radius: 12px;
+  background: var(--purple); color: #fff; border: none; cursor: pointer;
+  transition: all .13s; white-space: nowrap;
+  display: flex; align-items: center; gap: 7px;
+  box-shadow: 0 2px 8px rgba(124,58,237,.3);
+}
+#btn-send:hover:not(:disabled) { background: #6d28d9; transform: translateY(-1px); }
+#btn-send:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+#btn-start {
+  width: 100%; font-family: var(--sans); font-size: 14px; font-weight: 700;
+  padding: 13px; border-radius: 12px;
+  background: var(--purple); color: #fff; border: none; cursor: pointer;
+  transition: all .13s; display: flex; align-items: center; justify-content: center; gap: 8px;
+  box-shadow: 0 2px 10px rgba(124,58,237,.3);
+}
+#btn-start:hover { background: #6d28d9; transform: translateY(-1px); }
+
+/* Marcação de emergência no feed */
+.sys-err {
+  font-size: 12px; color: var(--c-em); font-weight: 600;
+  padding: 6px 12px; background: #fff5f5; border: 1px solid #fca5a5;
+  border-radius: 8px; display: flex; align-items: center; gap: 7px;
+}
+
+/* Animações */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.msg-wrap { animation: slideUp .2s ease; }
+</style>
+</head>
+<body>
+
+<header id="topbar">
+  <div class="logo">
+    <div class="logo-icon">🤖</div>
+    <div>
+      <div class="logo-text">SNS<span>24</span> Chatbot</div>
+      <div class="logo-sub">Projeto 2 · RAG + LLM (Ollama) + MYCIN</div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <div class="status-pill warn" id="status-pill">
+    <div class="status-dot"></div>
+    <span id="status-txt">A verificar…</span>
+  </div>
+  <a class="back-btn" href="/">
+    ← Triagem Clássica (P1)
+  </a>
+</header>
+
+<div id="app">
+  <aside id="sidebar">
+    <div class="sb-sec">
+      <div class="sb-lbl">Sistema P2</div>
+      <div class="about-box">
+        <div class="about-tag">RAG + LLM</div>
+        <br>
+        Chatbot conversacional com <strong>Retrieval Augmented Generation</strong>
+        sobre os protocolos Altitude SNS24.<br><br>
+        Motor <strong>MYCIN</strong> (Parte A) integrado para validação formal do diagnóstico.
+      </div>
+    </div>
+
+    <div class="sb-sec" style="flex:1">
+      <div class="sb-lbl">Sintomas Detetados</div>
+      <div id="sint-list">
+        <div class="sint-empty">Nenhum sintoma identificado ainda.</div>
+      </div>
+    </div>
+
+    <div id="resultado-box">
+      <div class="sb-lbl">Resultado MYCIN</div>
+      <div class="res-vazio" id="resultado-content">
+        Aguarda resposta completa.
+      </div>
+    </div>
+  </aside>
+
+  <main id="main">
+    <div id="feed">
+      <div class="welcome-card">
+        <div class="welcome-title">🤖 Chatbot de Triagem SNS24</div>
+        <div class="welcome-sub">
+          Este chatbot usa um <strong>Modelo de Linguagem (LLM)</strong> aumentado com
+          <strong>RAG</strong> sobre os protocolos clínicos Altitude do SNS24,
+          e valida o diagnóstico com o motor <strong>MYCIN</strong> da Parte A.
+        </div>
+        <div class="welcome-badges">
+          <span class="badge badge-purple">🧠 llama3.2:3b via Ollama</span>
+          <span class="badge badge-green">📚 RAG · Protocolos Altitude</span>
+          <span class="badge badge-orange">⚙️ Motor MYCIN integrado</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="input-area">
+      <button id="btn-start" onclick="iniciarChat()">
+        💬 &nbsp;Iniciar Conversa com o Assistente
+      </button>
+      <div id="input-row" style="display:none">
+        <textarea id="msg-input" placeholder="Descreva os seus sintomas…" rows="1"
+                  onkeydown="handleKey(event)" oninput="autoResize(this)" disabled></textarea>
+        <button id="btn-send" onclick="enviar()" disabled>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
+          Enviar
+        </button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const API = 'http://localhost:8081';
+let sessionId = null;
+let busy      = false;
+
+// ── STATUS ──────────────────────────────────────────────────────────────────
+async function verificarStatus() {
+  const pill = document.getElementById('status-pill');
+  const txt  = document.getElementById('status-txt');
+  try {
+    const r = await fetch(`${API}/api/chat/status`);
+    const d = await r.json();
+    if (d.ollama && d.model_ready) {
+      pill.className = 'status-pill ok';
+      txt.textContent = `${d.model} · pronto`;
+    } else if (d.ollama) {
+      pill.className = 'status-pill warn';
+      txt.textContent = 'Modelo não encontrado';
+      mostrarErro(`Modelo "${d.model || 'llama3.2:3b'}" não encontrado. Corra: ollama pull llama3.2:3b`);
+    } else {
+      pill.className = 'status-pill err';
+      txt.textContent = 'Ollama offline';
+      mostrarErro('Ollama não está a correr. Inicie com: ollama serve');
+    }
+  } catch {
+    pill.className = 'status-pill err';
+    txt.textContent = 'Chatbot offline';
+    mostrarErro('Servidor chatbot offline. Inicie com: python chatbot_server.py');
+  }
+}
+
+// ── INICIAR ──────────────────────────────────────────────────────────────────
+async function iniciarChat() {
+  document.getElementById('btn-start').style.display = 'none';
+  document.getElementById('input-row').style.display  = 'flex';
+
+  setBusy(true);
+  adicionarTyping();
+  try {
+    const r = await fetch(`${API}/api/chat/start`, {method:'POST'});
+    const d = await r.json();
+    removerTyping();
+    sessionId = d.session_id;
+    adicionarMsgBot(d.message);
+    setBusy(false);
+  } catch {
+    removerTyping();
+    mostrarErro('Não foi possível iniciar. Verifique se o chatbot_server.py está a correr.');
+    setBusy(false);
+    document.getElementById('btn-start').style.display = 'block';
+    document.getElementById('input-row').style.display  = 'none';
+  }
+}
+
+// ── ENVIAR ───────────────────────────────────────────────────────────────────
+async function enviar() {
+  if (busy || !sessionId) return;
+  const inp = document.getElementById('msg-input');
+  const msg = inp.value.trim();
+  if (!msg) return;
+
+  adicionarMsgUser(msg);
+  inp.value = '';
+  autoResize(inp);
+  setBusy(true);
+  adicionarTyping();
+
+  try {
+    const r = await fetch(`${API}/api/chat/message`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({session_id: sessionId, message: msg}),
+    });
+    const d = await r.json();
+    removerTyping();
+    adicionarMsgBot(d.message);
+    atualizarSintomas(d.sintomas || []);
+    if (d.resultado_prolog) mostrarResultado(d.resultado_prolog);
+  } catch(e) {
+    removerTyping();
+    mostrarErro('Erro de comunicação: ' + e.message);
+  }
+  setBusy(false);
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+// ── UI ───────────────────────────────────────────────────────────────────────
+function setBusy(v) {
+  busy = v;
+  document.getElementById('msg-input').disabled = v;
+  document.getElementById('btn-send').disabled   = v;
+}
+
+function scrollBottom() {
+  const f = document.getElementById('feed');
+  requestAnimationFrame(() => f.scrollTop = f.scrollHeight);
+}
+
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function md(text) {
+  // Markdown mínimo: bold, itálico, listas, parágrafos
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/\n/g, '<br>');
+}
+
+function adicionarMsgUser(txt) {
+  const f    = document.getElementById('feed');
+  const wrap = document.createElement('div');
+  wrap.className = 'msg-wrap user';
+  wrap.innerHTML = `<div class="msg-bubble">${esc(txt)}</div>`;
+  f.appendChild(wrap);
+  scrollBottom();
+}
+
+function adicionarMsgBot(txt) {
+  const f    = document.getElementById('feed');
+  const wrap = document.createElement('div');
+  const isEm = /112|emergência|chame o 112|ligue o 112/i.test(txt);
+  wrap.className = 'msg-wrap bot';
+  wrap.innerHTML = `
+    <div class="avatar">🤖</div>
+    <div class="msg-bubble${isEm ? ' emergency' : ''}">${md(txt)}</div>`;
+  f.appendChild(wrap);
+  scrollBottom();
+}
+
+function adicionarTyping() {
+  const f    = document.getElementById('feed');
+  const wrap = document.createElement('div');
+  wrap.className = 'msg-wrap bot';
+  wrap.id        = 'typing-ind';
+  wrap.innerHTML = `
+    <div class="avatar">🤖</div>
+    <div class="typing-bubble">
+      <div class="dot-anim"></div>
+      <div class="dot-anim"></div>
+      <div class="dot-anim"></div>
+    </div>`;
+  f.appendChild(wrap);
+  scrollBottom();
+}
+
+function removerTyping() {
+  const el = document.getElementById('typing-ind');
+  if (el) el.remove();
+}
+
+function mostrarErro(msg) {
+  const f = document.getElementById('feed');
+  const d = document.createElement('div');
+  d.className = 'sys-err';
+  d.innerHTML = `⚠️ ${esc(msg)}`;
+  f.appendChild(d);
+  scrollBottom();
+}
+
+// ── SIDEBAR: SINTOMAS ────────────────────────────────────────────────────────
+function atualizarSintomas(sintomas) {
+  const el = document.getElementById('sint-list');
+  if (!sintomas || !sintomas.length) {
+    el.innerHTML = '<div class="sint-empty">Nenhum sintoma identificado ainda.</div>';
+    return;
+  }
+  el.innerHTML = sintomas.map(s => `
+    <div class="sint-item ${s.presente ? 'sint-pres' : 'sint-aus'}">
+      <div class="sint-dot"></div>
+      <span>${esc(s.nome)}</span>
+    </div>`).join('');
+}
+
+// ── SIDEBAR: RESULTADO MYCIN ─────────────────────────────────────────────────
+const NIVEL_CORES = {
+  emergencia:          {cor:'#dc2626', bg:'#fff5f5', label:'🔴 EMERGÊNCIA'},
+  muito_urgente:       {cor:'#ea580c', bg:'#fff7ed', label:'🟠 MUITO URGENTE'},
+  urgente:             {cor:'#d97706', bg:'#fffbeb', label:'🟡 URGENTE'},
+  pouco_urgente:       {cor:'#2563eb', bg:'#eff6ff', label:'🔵 POUCO URGENTE'},
+  sem_sintomas_alarme: {cor:'#059669', bg:'#f0fdf4', label:'🟢 SEM ALARME'},
+};
+
+function mostrarResultado(res) {
+  const el = document.getElementById('resultado-content');
+  if (!res || res.type !== 'resultado') {
+    el.innerHTML = '<div class="res-vazio">Motor MYCIN: sem resultado disponível.</div>';
+    return;
+  }
+  const nid = res.nivel_id || 'sem_sintomas_alarme';
+  const c   = NIVEL_CORES[nid] || {cor:'#059669', bg:'#f0fdf4', label: res.nivel || nid};
+  el.innerHTML = `
+    <div class="res-card" style="border-color:${c.cor};background:${c.bg}">
+      <div class="res-nivel" style="color:${c.cor}">${c.label}</div>
+      <div class="res-rec">${esc(res.recomendacao || '')}</div>
+      <div class="res-cf" style="color:${c.cor}">${res.confianca_pct || 0}%</div>
+      <div class="res-cf-lbl">Confiança MYCIN</div>
+      <div class="res-mycin-badge">⚙️ Motor MYCIN (Parte A)</div>
+    </div>`;
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+verificarStatus();
+setInterval(verificarStatus, 30000);
+</script>
+</body>
+</html>

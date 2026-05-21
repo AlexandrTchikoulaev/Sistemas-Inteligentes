@@ -1,0 +1,227 @@
+BASE DE CONHECIMENTO RAG — SNS24 CHATBOT
+Gerado automaticamente a partir de base_conhecimento_a.pl + base_conhecimento_b.pl
+============================================================
+
+[1]
+Protocolo SNS24: os sintomas são avaliados por ordem de gravidade.
+EMERGÊNCIA → ligar 112 imediatamente.
+MUITO URGENTE → ir à urgência hospitalar agora.
+URGENTE → consultar médico ou centro de saúde em 24 horas.
+POUCO URGENTE → tratar em casa, vigiar.
+SEM ALARME → vigiar em casa; ligar SNS24 (808 24 24 24) se piorar.
+
+------------------------------------------------------------
+
+[2]
+Paragem respiratoria (nao respira de todo) → EMERGENCIA. Ligue 112 (INEM) imediatamente. Paragem respiratoria requer suporte basico de vida imediato.
+
+------------------------------------------------------------
+
+[3]
+Paragem cardiaca (sem pulso detectavel) → EMERGENCIA. Ligue 112 (INEM) imediatamente. Paragem cardiaca necessita de reanimacao e chamada ao 112.
+
+------------------------------------------------------------
+
+[4]
+Falta de ar grave (nao consegue falar ou cor azulada) → EMERGENCIA. Ligue 112 (INEM) imediatamente. Falta de ar grave e coloracao azulada indicam hipoxia severa.
+
+------------------------------------------------------------
+
+[5]
+Hemorragia abundante e incontrolavel → EMERGENCIA. Ligue 112 (INEM) imediatamente. Hemorragias activas podem levar a choque hipovolemico.
+
+------------------------------------------------------------
+
+[6]
+Alteracao da consciencia (nao responde ou sonolencia marcada) → EMERGENCIA. Ligue 112 (INEM) imediatamente. Alteracao de consciencia profunda sugere lesao ou doenca grave.
+
+------------------------------------------------------------
+
+[7]
+Convulsoes ou contracoes involuntarias do corpo → EMERGENCIA. Ligue 112 (INEM) imediatamente. Convulsoes activas comprometem a via aerea, causam hipoxia e indicam emergencia neurologica.
+
+------------------------------------------------------------
+
+[8]
+Febre acima de 39 graus Celsius, Confusao mental ou desorientacao subita, Dor abdominal muito intensa e persistente → EMERGENCIA. Ligue 112 (INEM) imediatamente. Febre alta + confusao + dor abdominal e o triade classica de sepsis, infeccao disseminada com risco de falencia multiorganica imediata.
+
+------------------------------------------------------------
+
+[9]
+Dor no centro do peito ha mais de 10 minutos, A dor irradia para o braco, mandibula ou costas → MUITO URGENTE. Dirija-se a urgencia hospitalar agora. Dor no peito com irradiacao e o quadro classico de enfarte do miocardio.
+
+------------------------------------------------------------
+
+[10]
+Dor no centro do peito ha mais de 10 minutos → MUITO URGENTE. Dirija-se a urgencia hospitalar agora. Dor no peito isolada pode ser cardiaca, requerendo avaliacao muito urgente.
+
+------------------------------------------------------------
+
+[11]
+Dificuldade subita em falar ou fala arrastada → MUITO URGENTE. Dirija-se a urgencia hospitalar agora. Dificuldade repentina na fala e um sinal de alerta de Acidente Vascular Cerebral (AVC).
+
+------------------------------------------------------------
+
+[12]
+Fraqueza subita num so lado do corpo ou boca ao lado → MUITO URGENTE. Dirija-se a urgencia hospitalar agora. Fraqueza unilateral do corpo e fortemente indicativa de AVC.
+
+------------------------------------------------------------
+
+[13]
+Dor abdominal muito intensa e persistente (sem Febre acima de 39 graus Celsius) → MUITO URGENTE. Dirija-se a urgencia hospitalar agora. Dor abdominal intensa sem febre pode significar abdomen agudo (ex: apendicite, colica renal).
+
+------------------------------------------------------------
+
+[14]
+Confusao mental ou desorientacao subita → MUITO URGENTE. Dirija-se a urgencia hospitalar agora. A confusao mental subita indica grave alteracao neurologica, metabolica ou infecciosa, independentemente de existir febre.
+
+------------------------------------------------------------
+
+[15]
+Dificuldade subita em falar ou fala arrastada, Fraqueza subita num so lado do corpo ou boca ao lado → MUITO URGENTE. Dirija-se a urgencia hospitalar agora. Dificuldade na fala combinada com fraqueza unilateral e o padrao FAST classico de AVC, a combinacao eleva a certeza diagnostica acima de cada sinal isolado.
+
+------------------------------------------------------------
+
+[16]
+Febre acima de 39 graus Celsius, Dor abdominal muito intensa e persistente → MUITO URGENTE. Dirija-se a urgencia hospitalar agora. Febre alta associada a dor abdominal intensa, na ausencia de confusao, pode indicar infeccao com foco cirurgico (apendicite com febre, colecistite aguda, pielonefrite grave).
+
+------------------------------------------------------------
+
+[17]
+Febre em bebe com menos de 3 meses → URGENTE. Marque consulta no centro de saude em 24h. A febre em bebes menores de 3 meses e sempre um sinal de alerta (sistema imunitario imaturo).
+
+------------------------------------------------------------
+
+[18]
+Febre acima de 39 graus Celsius, Tosse acompanhada de febre → URGENTE. Marque consulta no centro de saude em 24h. Febre alta combinada com tosse levanta a suspeita de pneumonia.
+
+------------------------------------------------------------
+
+[19]
+Vomitos repetidos que impedem ingerir liquidos, Diarreia grave com sinais de desidratacao → URGENTE. Marque consulta no centro de saude em 24h. Vomitos e diarreia simultaneos acarretam um alto risco de desidratacao.
+
+------------------------------------------------------------
+
+[20]
+Febre acima de 39 graus Celsius → URGENTE. Marque consulta no centro de saude em 24h. Febre alta persistente requer investigacao de foco infeccioso.
+
+------------------------------------------------------------
+
+[21]
+Dor moderada que nao cede a medicacao → URGENTE. Marque consulta no centro de saude em 24h. Dor que nao cede aos analgesicos precisa de reavaliacao medica.
+
+------------------------------------------------------------
+
+[22]
+Dor de garganta com dificuldade em engolir → URGENTE. Marque consulta no centro de saude em 24h. Dificuldade em engolir acompanhada de dor pode indicar infeccao severa na garganta ou abscesso periamigdalino, com risco de compromisso da via aerea.
+
+------------------------------------------------------------
+
+[23]
+Febre em bebe com menos de 3 meses, Vomitos repetidos que impedem ingerir liquidos, Diarreia grave com sinais de desidratacao → MUITO URGENTE. Dirija-se a urgencia hospitalar agora. Bebe febril com perda de liquidos por vomitos E diarreia enfrenta risco critico de desidratacao severa.
+
+------------------------------------------------------------
+
+[24]
+Febre acima de 39 graus Celsius, Tosse acompanhada de febre, Dor moderada que nao cede a medicacao → URGENTE. Marque consulta no centro de saude em 24h. Febre alta com tosse e dor que nao cede a analgesicos aponta para infeccao respiratoria profunda (ex: pneumonia bacteriana), que pode necessitar de antibioterapia urgente.
+
+------------------------------------------------------------
+
+[25]
+Dor abdominal muito intensa e persistente (sem Vomitos repetidos que impedem ingerir liquidos, Diarreia grave com sinais de desidratacao) → URGENTE. Marque consulta no centro de saude em 24h. Dor abdominal sem vomitos nem diarreia afasta a gastroenterite como causa.
+
+------------------------------------------------------------
+
+[26]
+Sintomas de constipacao (tosse ligeira, nariz entupido) → POUCO URGENTE. Autocuidados em casa, vigiar evolucao. Sintomas gripais ligeiros devem ser autotratados com repouso.
+
+------------------------------------------------------------
+
+[27]
+Dor ligeira controlada com medicacao habitual → POUCO URGENTE. Autocuidados em casa, vigiar evolucao. Dores ligeiras que cedem a medicacao nao requerem idas urgentes ao hospital.
+
+------------------------------------------------------------
+
+[28]
+Febre baixa, abaixo de 38 graus Celsius → POUCO URGENTE. Autocuidados em casa, vigiar evolucao. Febres baixas sao normalmente autolimitadas e respondem a antipireticos em casa.
+
+------------------------------------------------------------
+
+[29]
+Dor ligeira controlada com medicacao habitual, Mal-estar geral sem sintomas especificos → POUCO URGENTE. Autocuidados em casa, vigiar evolucao. Mal-estar com dor ligeira e controlada consolida um quadro benigno, o medico de familia e o destino adequado, nao a urgencia hospitalar.
+
+------------------------------------------------------------
+
+[30]
+Mal-estar geral sem sintomas especificos → SEM ALARME. Vigiar; contactar SNS24 se piorar. O mal-estar geral sem alarmes deve ser apenas vigiado em casa.
+
+------------------------------------------------------------
+
+[31]
+Sintomas de constipacao (tosse ligeira, nariz entupido), Febre baixa, abaixo de 38 graus Celsius → SEM ALARME. Vigiar; contactar SNS24 se piorar. Constipacao com febre baixa e o quadro viral autolimitado mais tipico, medicacao de venda livre e habitualmente suficiente.
+
+------------------------------------------------------------
+
+[32]
+Dor ligeira controlada com medicacao habitual, Mal-estar geral sem sintomas especificos (sem Febre acima de 39 graus Celsius) → POUCO URGENTE. Autocuidados em casa, vigiar evolucao. Padrao ML (POUCO URGENTE, confianca=100%, n=9): presenca de dor ligeira, mal-estar geral; ausencia de febre alta (>39C). [padrão aprendido automaticamente]
+
+------------------------------------------------------------
+
+[33]
+Dor ligeira controlada com medicacao habitual (sem Febre acima de 39 graus Celsius, Mal-estar geral sem sintomas especificos) → POUCO URGENTE. Autocuidados em casa, vigiar evolucao. Padrao ML (POUCO URGENTE, confianca=76%, n=18): presenca de dor ligeira; ausencia de febre alta (>39C), mal-estar geral. [padrão aprendido automaticamente]
+
+------------------------------------------------------------
+
+[34]
+Sintomas de constipacao (tosse ligeira, nariz entupido), Febre baixa, abaixo de 38 graus Celsius (sem Dor ligeira controlada com medicacao habitual) → SEM ALARME. Vigiar; contactar SNS24 se piorar. Padrao ML (SEM ALARME, confianca=89%, n=14): presenca de constipacao, febre baixa; ausencia de dor ligeira. [padrão aprendido automaticamente]
+
+------------------------------------------------------------
+
+[35]
+Mal-estar geral sem sintomas especificos (sem Dor ligeira controlada com medicacao habitual, Sintomas de constipacao (tosse ligeira, nariz entupido)) → SEM ALARME. Vigiar; contactar SNS24 se piorar. Padrao ML (SEM ALARME, confianca=72%, n=24): presenca de mal-estar geral; ausencia de dor ligeira, constipacao. [padrão aprendido automaticamente]
+
+------------------------------------------------------------
+
+[36]
+Sintomas que indicam EMERGENCIA:
+  - Paragem respiratoria (nao respira de todo): A ausencia de respiracao e a emergencia medica mais critica, exigindo inicio imediato de Suporte Basico de Vida
+  - Paragem cardiaca (sem pulso detectavel): A paragem cardiaca requer reanimacao imediata para tentar restabelecer o fluxo sanguineo ao cerebro
+  - Falta de ar grave (nao consegue falar ou cor azulada): A dificuldade grave em respirar pode indicar falencia respiratoria, o que representa um risco imediato de vida
+  - Hemorragia abundante e incontrolavel: A perda rapida e incontrolavel de sangue pode levar rapidamente ao choque hipovolemico
+  - Alteracao da consciencia (nao responde ou sonolencia marcada): A perda de consciencia indica grave sofrimento cerebral, podendo ser trauma, AVC ou intoxicacao
+  - Convulsoes ou contracoes involuntarias do corpo: As convulsoes activas comprometem a via aerea, causam hipoxia e indicam uma emergencia neurologica aguda que requer chamada imediata ao 112
+
+------------------------------------------------------------
+
+[37]
+Sintomas que indicam MUITO URGENTE:
+  - Dor no centro do peito ha mais de 10 minutos: A dor no peito e o sintoma primario de alerta para avaliar a hipotese de um Enfarte do Miocardio (ataque cardiaco)
+  - A dor irradia para o braco, mandibula ou costas: A irradiacao da dor no peito para os membros ou costas e um padrao que reforca muito a suspeita de origem cardiaca
+  - Dificuldade subita em falar ou fala arrastada: A dificuldade subita em articular palavras e um dos principais sinais de alerta de um possivel AVC
+  - Fraqueza subita num so lado do corpo ou boca ao lado: A perda de forca num dos lados do corpo e um sintoma neurologico classico de isquemia ou hemorragia cerebral
+  - Confusao mental ou desorientacao subita: A confusao mental subita pode ser sinal de infeccao grave (meningite, sepsis), falta de oxigenio ou alteracao neurologica abrupta
+  - Dor abdominal muito intensa e persistente: Dores abdominais subitas e muito intensas podem indicar condicoes agudas graves, como apendicite ou perfuracao de orgaos
+
+------------------------------------------------------------
+
+[38]
+Sintomas que indicam URGENTE:
+  - Febre acima de 39 graus Celsius: Febres muito elevadas (acima de 39 graus) sugerem infeccoes que podem requerer intervencao medica ou antibioticos
+  - Febre em bebe com menos de 3 meses: Os bebes tem um sistema imunitario imaturo, pelo que a febre requer sempre avaliacao medica urgente para despiste de infeccoes
+  - Tosse acompanhada de febre: A tosse associada a febre levanta a forte suspeita de infeccoes respiratorias, como a pneumonia
+  - Dor moderada que nao cede a medicacao: Uma dor que nao cede a medicacao de alivio habitual sugere um quadro inflamatorio ou lesivo que necessita de diagnostico formal
+  - Vomitos repetidos que impedem ingerir liquidos: A incapacidade repetida de reter liquidos no estomago leva rapidamente a desidratacao severa
+  - Diarreia grave com sinais de desidratacao: A perda de grandes volumes de liquidos pelos intestinos comporta um alto risco de desidratacao e desequilibrio electrolitico
+  - Dor de garganta com dificuldade em engolir: Se acompanhada de grande dificuldade em engolir, pode indicar abscesso periamigdalino ou epiglotite, infeccoes que ameacam bloquear a via aerea
+
+------------------------------------------------------------
+
+[39]
+Sintomas que indicam POUCO URGENTE:
+  - Sintomas de constipacao (tosse ligeira, nariz entupido): Sintomas tipicos de constipacao ajudam a enquadrar o quadro como uma provavel infeccao viral benigna, sem gravidade
+  - Dor ligeira controlada com medicacao habitual: Dores de baixa intensidade e facilmente controlaveis geralmente nao indicam problemas com os seus orgaos vitais
+  - Febre baixa, abaixo de 38 graus Celsius: Temperaturas moderadas sao a resposta natural de defesa do corpo a pequenas agressoes virais ou inflamatorias
+  - Mal-estar geral sem sintomas especificos: Sentir-se indisposto de forma vaga, sem sinais de alarme, ajuda-nos a confirmar a ausencia de quadros clinicos urgentes
+
+------------------------------------------------------------
+

@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SNS24 - Triagem Inteligente</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --green:       #059669;
+  --green-light: #d1fae5;
+  --green-mid:   #10b981;
+  --green-dark:  #065f46;
+  --bg:          #f0fdf4;
+  --surface:     #ffffff;
+  --surface2:    #f8fafc;
+  --border:      #e2e8f0;
+  --border2:     #cbd5e1;
+  --text:        #0f172a;
+  --text-mid:    #475569;
+  --text-dim:    #94a3b8;
+  --mono:        'IBM Plex Mono', monospace;
+  --sans:        'DM Sans', sans-serif;
+  --c-em:    #dc2626;
+  --c-mu:    #ea580c;
+  --c-ur:    #d97706;
+  --c-pu:    #2563eb;
+  --c-sa:    #059669;
+}
+
+html, body {
+  width: 100%; min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  overflow-x: hidden;
+}
+
+/* ── Layout Simplificado ────────────────────────────── */
+#app {
+  display: block; /* Removemos o Grid porque os menus agora são fixed */
+  min-height: 100vh;
+  padding-top: 60px; /* Compensa exatamente a altura do topbar */
+}
+
+/* ── Topbar ─────────────────────────────────────────── */
+#topbar {
+  background: var(--surface);
+  border-bottom: 1.5px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 24px; gap: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: 60px;
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon {
+  width: 34px; height: 34px;
+  background: var(--green); border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; flex-shrink: 0;
+}
+.logo-text  { font-size: 14px; font-weight: 800; color: var(--text); }
+.logo-text span { color: var(--green); }
+.logo-sub   { font-size: 10.5px; color: var(--text-dim); font-weight: 500; margin-top: 1px; }
+.spacer { flex: 1; }
+
+.status-pill {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--green-light); border: 1px solid #a7f3d0;
+  border-radius: 20px; padding: 4px 12px;
+  font-size: 11px; font-weight: 600; color: var(--green-dark);
+}
+.status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green);
+  animation: blink 2s ease infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+#btn-iniciar {
+  font-family: var(--sans); font-size: 13px; font-weight: 700;
+  padding: 9px 22px; background: var(--green); color: #fff;
+  border: none; border-radius: 9px; cursor: pointer;
+  transition: all .14s;
+  box-shadow: 0 2px 8px rgba(5,150,105,.28);
+  display: flex; align-items: center; gap: 7px;
+}
+#btn-iniciar:hover  { background: #047857; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(5,150,105,.35); }
+#btn-iniciar:active { transform: translateY(0); }
+#btn-iniciar:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ── Sidebar ─────────────────────────────────────────── */
+#sidebar {
+  background: var(--surface);
+  border-right: 1.5px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+  position: fixed; top: 60px; left: 0; z-index: 100;
+  width: 280px; /* IMPORTANTE: Como está fixed, precisamos forçar a largura */
+  height: calc(100vh - 60px);
+}
+.sb-sec { padding: 16px 18px; border-bottom: 1px solid var(--border); }
+.sb-lbl {
+  font-size: 9.5px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 11px;
+}
+
+/* Árvore de progresso */
+#tree-wrap { display: flex; flex-direction: column; gap: 2px; max-height: 160px; overflow-y: auto; }
+.tree-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 7px; border-radius: 7px;
+  font-size: 11.5px; font-weight: 500; transition: background .12s;
+}
+.tree-item.done    { color: var(--green); background: #f0fdf4; }
+.tree-item.active  { color: var(--green-dark); background: #bbf7d0; font-weight: 700; }
+.tree-item.pending { color: var(--text-dim); }
+.tree-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.done   .tree-dot { background: var(--green); }
+.active .tree-dot { background: var(--green-dark); box-shadow: 0 0 0 2.5px #a7f3d0; }
+.pending .tree-dot { background: var(--border2); }
+.tree-done-ans { margin-left: auto; font-family: var(--mono); font-size: 9.5px; }
+.ans-sim    { color: var(--green); }
+.ans-nao    { color: #94a3b8; }
+.ans-talvez { color: #d97706; }
+.tree-empty { font-size: 11.5px; color: var(--text-dim); padding: 4px 7px; }
+
+/* Nível actual */
+#sb-nivel-atual { padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.sb-nivel-vazio { font-size: 11.5px; color: var(--text-dim); padding: 4px 0; }
+.sb-nivel-card {
+  border-radius: 10px; padding: 10px 13px;
+  display: flex; align-items: center; gap: 10px; border: 1.5px solid;
+}
+.sb-nivel-emoji { font-size: 18px; flex-shrink: 0; }
+.sb-nivel-nome  { font-size: 12px; font-weight: 800; letter-spacing: .2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-nivel-sub   { font-size: 10px; color: var(--text-dim); font-weight: 500; margin-top: 1px; }
+.sb-nivel-pct   { font-family: var(--mono); font-size: 18px; font-weight: 800; flex-shrink: 0; line-height: 1; }
+
+/* Scores live */
+#sb-scores { flex: 1; padding: 16px 18px; overflow-y: auto; }
+.sb-score-item { margin-bottom: 12px; }
+.sb-score-head { display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 600; color: var(--text-mid); margin-bottom: 5px; }
+.sb-score-val  { font-family: var(--mono); font-weight: 700; font-size: 11px; }
+.sb-bar-bg { height: 5px; background: var(--border); border-radius: 10px; overflow: hidden; }
+.sb-bar    { height: 100%; border-radius: 10px; width: 0%; transition: width .5s cubic-bezier(.4,0,.2,1); }
+
+.formula-box {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 9px; padding: 11px 13px; margin-top: 4px;
+  font-size: 10.5px; color: var(--text-dim); line-height: 1.85;
+  font-family: var(--mono);
+}
+.formula-box .hl  { color: var(--green); font-weight: 600; }
+.formula-box .hl2 { color: #d97706; font-weight: 600; }
+
+/* ── Feed principal ─────────────────────────────────── */
+#main { 
+  display: flex; flex-direction: column; overflow: visible; 
+  margin-left: 280px; /* IMPORTANTE: Empurra o conteúdo principal para a direita do sidebar fixo */
+}
+
+#feed {
+  flex: 1; padding: 28px 32px;
+  display: flex; flex-direction: column; gap: 16px;
+  max-width: 780px; width: 100%;
+}
+
+/* Mensagem de sistema - pill pequeno */
+.sys-msg {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12.5px; color: var(--text-mid); font-weight: 500;
+  padding: 2px 0;
+}
+.sys-msg .sys-icon { font-size: 14px; }
+.sys-msg.err  { color: #dc2626; }
+.sys-msg.ok   { color: var(--green); font-weight: 600; }
+.sys-msg.warn { color: #d97706; }
+.sys-msg.ml   { color: #7c3aed; }
+
+/* Spinner */
+.spin-row { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--text-dim); }
+.spin {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid var(--border2); border-top-color: var(--green);
+  border-radius: 50%; animation: spin .55s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Card de boas-vindas ─────────────────────────────── */
+.welcome-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 16px; padding: 28px 30px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.06);
+}
+.welcome-title {
+  font-size: 22px; font-weight: 800; color: var(--text);
+  margin-bottom: 4px; letter-spacing: -.3px;
+}
+.welcome-sub { font-size: 13px; color: var(--text-mid); margin-bottom: 20px; }
+.welcome-tips {
+  display: flex; flex-direction: column; gap: 9px;
+}
+.tip-row {
+  display: flex; align-items: flex-start; gap: 11px;
+  font-size: 13px; color: var(--text-mid); font-weight: 500; line-height: 1.45;
+}
+.tip-icon {
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 14px;
+  background: var(--green-light);
+}
+
+/* ── Card de pergunta ────────────────────────────────── */
+.pergunta-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.06);
+  overflow: hidden;
+  animation: slideIn .22s ease;
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.pergunta-card.respondida {
+  border-color: #e2e8f0;
+  box-shadow: none;
+  opacity: .85;
+}
+
+.pq-topo {
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  background: #fafcff;
+  display: flex; align-items: center; gap: 10px;
+}
+.pq-num-badge {
+  font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
+  color: var(--text-dim); background: var(--border); border-radius: 5px; padding: 2px 8px;
+  flex-shrink: 0;
+}
+
+.pq-body { padding: 20px 22px; }
+.pq-sintoma-texto {
+  font-size: 18px; font-weight: 700; color: var(--text);
+  line-height: 1.35; letter-spacing: -.2px; margin-bottom: 14px;
+}
+
+/* Botão "Porquê" */
+.pq-why-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--sans); font-size: 12px; font-weight: 600;
+  color: var(--text-dim); background: var(--surface2);
+  border: 1px solid var(--border2); border-radius: 8px; padding: 5px 13px;
+  cursor: pointer; transition: all .12s;
+}
+.pq-why-btn:hover { border-color: var(--green); color: var(--green); background: var(--green-light); }
+.pq-why-text {
+  margin-top: 14px; padding: 13px 16px;
+  background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px;
+  font-size: 13px; color: #78350f; line-height: 1.6;
+  display: none;
+}
+.pq-why-text.aberto { display: block; animation: fadeIn .15s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+
+/* Resposta inline no card */
+.pq-resposta {
+  margin: 0 22px 18px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; border-radius: 10px; border: 1.5px solid;
+  font-size: 13px; font-weight: 600;
+  animation: fadeIn .18s ease;
+}
+.pq-resposta.resp-sim    { background: #f0fdf4; border-color: #86efac; color: #15803d; }
+.pq-resposta.resp-nao    { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+.pq-resposta.resp-talvez { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+.pq-resp-icon  { font-size: 16px; }
+.pq-resp-label { font-size: 14px; font-weight: 800; }
+.pq-resp-cert  { margin-left: auto; font-family: var(--mono); font-size: 12px; opacity: .75; }
+
+/* ── Card de instrução ───────────────────────────────── */
+.info-card {
+  background: var(--green-light);
+  border: 1.5px solid #a7f3d0;
+  border-radius: 14px; padding: 16px 20px;
+  display: flex; gap: 13px; align-items: flex-start;
+  animation: slideIn .2s ease;
+}
+.info-card-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+.info-card-title { font-size: 13.5px; font-weight: 700; color: var(--green-dark); margin-bottom: 5px; }
+.info-card-body  { font-size: 12.5px; color: #065f46; line-height: 1.6; }
+.info-chip-row   { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+.info-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 11px; border-radius: 7px; font-size: 12px; font-weight: 600;
+  border: 1px solid;
+}
+.ic-sim    { background: #dcfce7; border-color: #86efac; color: #15803d; }
+.ic-nao    { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+.ic-talvez { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+.ic-cert   { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+
+/* ── Card de resultado ───────────────────────────────── */
+.result-card {
+  background: var(--surface); border: 2px solid var(--border);
+  border-radius: 18px; overflow: hidden;
+  box-shadow: 0 8px 28px rgba(0,0,0,.1);
+  animation: slideIn .25s ease;
+}
+.rc-nivel-emergencia    { border-color: var(--c-em); }
+.rc-nivel-muito_urgente { border-color: var(--c-mu); }
+.rc-nivel-urgente       { border-color: var(--c-ur); }
+.rc-nivel-pouco_urgente { border-color: var(--c-pu); }
+.rc-nivel-sem_sintomas_alarme { border-color: var(--c-sa); }
+
+.rc-header { padding: 22px 26px 18px; display: flex; align-items: flex-start; gap: 16px; }
+.rc-nivel-emergencia    .rc-header { background: #fff5f5; }
+.rc-nivel-muito_urgente .rc-header { background: #fff7ed; }
+.rc-nivel-urgente       .rc-header { background: #fffbeb; }
+.rc-nivel-pouco_urgente .rc-header { background: #eff6ff; }
+.rc-nivel-sem_sintomas_alarme .rc-header { background: var(--green-light); }
+
+.rc-badge  { font-size: 17px; font-weight: 800; letter-spacing: .2px; margin-bottom: 4px; }
+.rc-nivel-emergencia    .rc-badge { color: var(--c-em); }
+.rc-nivel-muito_urgente .rc-badge { color: var(--c-mu); }
+.rc-nivel-urgente       .rc-badge { color: var(--c-ur); }
+.rc-nivel-pouco_urgente .rc-badge { color: var(--c-pu); }
+.rc-nivel-sem_sintomas_alarme .rc-badge { color: var(--c-sa); }
+
+.rc-confianca { margin-left: auto; text-align: right; flex-shrink: 0; }
+.rc-pct       { font-family: var(--mono); font-size: 30px; font-weight: 700; color: var(--text); line-height: 1; }
+.rc-pct-label { font-size: 9.5px; color: var(--text-dim); font-weight: 700; letter-spacing: .6px; text-transform: uppercase; margin-top: 2px; }
+.rc-rec       { font-size: 13px; font-weight: 600; color: var(--text-mid); }
+
+.rc-body { padding: 18px 26px 22px; display: flex; flex-direction: column; gap: 20px; }
+.rc-sec-title { font-size: 9.5px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px; }
+
+/* Scores */
+.scores-list { display: flex; flex-direction: column; gap: 9px; }
+.score-row   { display: flex; align-items: center; gap: 10px; }
+.score-name  { font-size: 11.5px; font-weight: 600; color: var(--text-mid); min-width: 130px; }
+.score-name.rec { font-weight: 800; }
+.score-bar-bg   { flex: 1; height: 8px; background: var(--border); border-radius: 10px; overflow: hidden; }
+.score-bar-fill { height: 100%; border-radius: 10px; width: 0%; transition: width .7s cubic-bezier(.4,0,.2,1); }
+.score-pct-val  { font-family: var(--mono); font-size: 12px; font-weight: 700; min-width: 36px; text-align: right; }
+.score-rec-tag  { font-size: 9.5px; font-weight: 700; padding: 2px 8px; border-radius: 5px; flex-shrink: 0; color: #fff; }
+
+/* Justificação */
+.just-regra      { font-size: 12.5px; color: var(--text-mid); margin-bottom: 8px; }
+.just-regra strong { color: var(--text); }
+.just-prem-list  { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.prem-chip { font-size: 11.5px; font-weight: 500; padding: 3px 11px; border-radius: 20px; }
+.prem-chip.presente { background: var(--green-light); color: var(--green-dark); border: 1px solid #a7f3d0; }
+.prem-chip.ausente  { background: #f1f5f9; color: #64748b; border: 1px solid var(--border2); text-decoration: line-through; }
+.just-expl { font-size: 13px; color: var(--text); line-height: 1.65; font-weight: 500; }
+
+/* Regras secundárias */
+.sec-list { display: flex; flex-direction: column; gap: 7px; margin-top: 8px; }
+.sec-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 13px; font-size: 12px; color: var(--text-mid); line-height: 1.55; }
+.sec-item-head { display: flex; gap: 8px; align-items: center; margin-bottom: 3px; }
+.sec-id  { font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--text); }
+.sec-pct { font-family: var(--mono); font-size: 11.5px; color: var(--green); font-weight: 700; }
+
+/* Sintomas confirmados */
+.sint-list { display: flex; flex-direction: column; gap: 6px; }
+.sint-item { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--text-mid); font-weight: 500; }
+.sint-dot  { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+.sint-cf   { margin-left: auto; font-family: var(--mono); font-size: 10.5px; color: var(--text-dim); }
+
+/* ── Card de validação ───────────────────────────────── */
+.val-card {
+  background: var(--surface); border: 1.5px solid var(--green);
+  border-radius: 14px; padding: 18px 22px;
+  box-shadow: 0 2px 10px rgba(5,150,105,.1);
+  animation: slideIn .2s ease;
+}
+.val-title { font-size: 9.5px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: var(--green); margin-bottom: 4px; }
+.val-sub   { font-size: 13px; color: var(--text-mid); font-weight: 500; margin-bottom: 14px; line-height: 1.5; }
+.val-btns  { display: flex; gap: 8px; flex-wrap: wrap; }
+.val-card.used { opacity: .5; pointer-events: none; }
+
+.btn-val { font-family: var(--sans); font-size: 13px; font-weight: 700; padding: 9px 20px; border-radius: 9px; border: 1.5px solid; cursor: pointer; transition: all .12s; display: flex; align-items: center; gap: 6px; }
+.btn-val-ok   { border-color: var(--green); color: var(--green);  background: var(--green-light); }
+.btn-val-ok:hover   { background: #a7f3d0; }
+.btn-val-err  { border-color: #dc2626; color: #dc2626; background: #fff5f5; }
+.btn-val-err:hover  { background: #fee2e2; }
+.btn-val-skip { border-color: var(--border2); color: var(--text-dim); background: var(--surface2); }
+.btn-val-skip:hover { border-color: var(--text-mid); }
+
+.val-levels   { display: none; flex-direction: column; gap: 5px; margin-top: 12px; }
+.val-levels.open { display: flex; }
+.btn-lvl { font-family: var(--sans); font-size: 12.5px; font-weight: 600; padding: 8px 14px; border-radius: 8px; border: 1.5px solid var(--border); color: var(--text-mid); background: var(--surface2); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 9px; transition: all .12s; }
+.btn-lvl:hover { border-color: var(--green); color: var(--text); background: var(--green-light); }
+.lvl-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Área de input (sticky bottom) ──────────────────── */
+#input-area {
+  background: var(--surface); border-top: 1.5px solid var(--border);
+  padding: 0; display: none; flex-direction: column;
+  box-shadow: 0 -2px 16px rgba(0,0,0,.07);
+  position: sticky; bottom: 0; z-index: 50;
+}
+#input-area.active { display: flex; }
+
+#q-bar {
+  padding: 12px 28px 10px;
+  background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+  border-bottom: 1px solid #a7f3d0;
+  display: flex; align-items: center; gap: 10px;
+}
+.q-tag {
+  font-size: 9px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--green-dark); background: #a7f3d0; border-radius: 5px; padding: 3px 8px; flex-shrink: 0;
+}
+#q-text { font-size: 13.5px; font-weight: 700; color: var(--green-dark); }
+
+#btn-area { padding: 12px 28px 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.btn-resp {
+  font-family: var(--sans); font-size: 13px; font-weight: 700;
+  padding: 10px 20px; border-radius: 10px; border: 1.5px solid;
+  cursor: pointer; transition: all .13s;
+  display: flex; align-items: center; gap: 7px;
+}
+.btn-resp:disabled { opacity: .35; cursor: not-allowed; }
+.btn-resp:not(:disabled):hover  { transform: translateY(-1px); }
+.btn-resp:not(:disabled):active { transform: scale(.97); }
+
+.btn-sim    { background: #dcfce7; border-color: #16a34a; color: #15803d; }
+.btn-sim:not(:disabled):hover    { background: #bbf7d0; box-shadow: 0 3px 14px rgba(22,163,74,.22); }
+.btn-nao    { background: #fef2f2; border-color: #dc2626; color: #b91c1c; }
+.btn-nao:not(:disabled):hover    { background: #fee2e2; box-shadow: 0 3px 14px rgba(220,38,38,.2); }
+.btn-talvez { background: #fefce8; border-color: #ca8a04; color: #92400e; }
+.btn-talvez:not(:disabled):hover { background: #fef9c3; }
+.btn-pq     { background: var(--surface2); border-color: var(--border2); color: var(--text-mid); font-size: 12.5px; padding: 10px 16px; }
+.btn-pq:not(:disabled):hover { border-color: var(--green); color: var(--green); background: var(--green-light); }
+
+.divider-v { width: 1px; height: 32px; background: var(--border); flex-shrink: 0; }
+
+.cert-group { display: flex; align-items: center; gap: 9px; font-size: 11.5px; color: var(--text-dim); font-weight: 600; }
+.cert-slider {
+  -webkit-appearance: none; appearance: none;
+  width: 100px; height: 5px; background: var(--border); border-radius: 3px; outline: none;
+}
+.cert-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--green); cursor: pointer; border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(5,150,105,.4);
+}
+.cert-val  { color: var(--green); font-weight: 700; font-family: var(--mono); min-width: 32px; font-size: 12px; }
+.btn-cert  { font-family: var(--sans); font-size: 12px; font-weight: 700; padding: 8px 14px; border-radius: 8px; border: 1.5px solid var(--border2); color: var(--text-mid); background: var(--surface2); cursor: pointer; transition: all .12s; }
+.btn-cert:hover    { border-color: var(--green); color: var(--green); background: var(--green-light); }
+.btn-cert:disabled { opacity: .35; cursor: not-allowed; }
+
+/* Mensagem final */
+.msg-final {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 12px; padding: 14px 18px;
+  font-size: 13px; color: var(--text-mid); font-weight: 500; line-height: 1.55;
+}
+.msg-final strong { color: var(--c-em); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header id="topbar">
+    <div class="logo">
+      <div class="logo-icon">🏥</div>
+      <div>
+        <div class="logo-text">SNS<span>24</span> Triagem</div>
+        <div class="logo-sub">Parte A (MYCIN) + Parte B (ML · DT)</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="status-pill">
+      <div class="status-dot"></div>
+      <span>MYCIN activo</span>
+    </div>
+    <a href="/chatbot.html" style="font-family:var(--sans);font-size:12.5px;font-weight:700;
+       padding:7px 16px;border-radius:8px;border:1.5px solid #c4b5fd;color:#7c3aed;
+       background:#ede9fe;text-decoration:none;display:flex;align-items:center;gap:6px;
+       transition:all .13s;" onmouseover="this.style.background='#ddd6fe'"
+       onmouseout="this.style.background='#ede9fe'">
+      🤖 Chatbot P2
+    </a>
+    <button id="btn-iniciar" onclick="iniciar()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      Iniciar Triagem
+    </button>
+  </header>
+
+  <aside id="sidebar">
+    <div class="sb-sec">
+      <div class="sb-lbl">Progresso · Sintomas</div>
+      <div id="tree-wrap">
+        <div class="tree-empty">Triagem não iniciada</div>
+      </div>
+    </div>
+
+    <div id="sb-nivel-atual">
+      <div class="sb-lbl">Nível Atual</div>
+      <div id="nivel-atual-content">
+        <div class="sb-nivel-vazio">Inicie uma triagem.</div>
+      </div>
+    </div>
+
+    <div id="sb-scores">
+      <div class="sb-lbl">Scores MYCIN em tempo real</div>
+      <div id="scores-live">
+        <div style="font-size:11.5px;color:var(--text-dim)">Inicie uma triagem para ver os scores.</div>
+      </div>
+      <div class="formula-box" style="margin-top:14px">
+        <span class="hl">CF_Final</span> = <span class="hl2">CF_premissas</span> × CF_regra<br>
+        Combinação AND: <span class="hl">min(CFs)</span><br>
+        Combinação múltipla: <span class="hl">MYCIN</span><br>
+        Limiar saída antecipada: <span class="hl">0.80</span>
+      </div>
+    </div>
+  </aside>
+
+  <main id="main">
+    <div id="feed">
+      <div class="welcome-card" id="welcome-card">
+        <div class="welcome-title">Sistema de Triagem SNS24</div>
+        <div class="welcome-sub">Motor MYCIN (Parte A) + Machine Learning (Parte B)</div>
+        <div class="welcome-tips">
+          <div class="tip-row">
+            <div class="tip-icon">▶</div>
+            <div>Clique em <strong>Iniciar Triagem</strong> para começar. O sistema irá perguntar sobre os seus sintomas um a um.</div>
+          </div>
+          <div class="tip-row">
+            <div class="tip-icon">💡</div>
+            <div>Em cada pergunta pode pedir uma <strong>explicação clínica</strong> antes de responder.</div>
+          </div>
+          <div class="tip-row">
+            <div class="tip-icon">📊</div>
+            <div>A barra lateral mostra os <strong>scores MYCIN em tempo real</strong> à medida que responde.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="input-area">
+      <div id="q-bar">
+        <span class="q-tag">Sintoma</span>
+        <span id="q-text">-</span>
+      </div>
+      <div id="btn-area">
+        <button class="btn-resp btn-sim"    onclick="responder('sim',    100)">✓ &nbsp;SIM</button>
+        <button class="btn-resp btn-nao"    onclick="responder('nao',    100)">✗ &nbsp;NÃO</button>
+        <button class="btn-resp btn-talvez" onclick="responder('talvez', 50 )">≈ &nbsp;TALVEZ</button>
+        <button class="btn-resp btn-pq"     onclick="mostrarPorque()" id="btn-pq">💡 Porquê?</button>
+        <div class="divider-v"></div>
+        <div class="cert-group">
+          Certeza:
+          <input type="range" class="cert-slider" id="cert-slider" min="0" max="100" value="80"
+                 oninput="document.getElementById('cert-disp').textContent=this.value+'%'">
+          <span class="cert-val" id="cert-disp">80%</span>
+          <button class="btn-cert" id="btn-sim-cert" onclick="responderComCerteza('sim')">✓ Sim</button>
+          <button class="btn-cert" id="btn-nao-cert" onclick="responderComCerteza('nao')">✗ Não</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// ESTADO
+// ═══════════════════════════════════════════════════════════════
+let sintoma       = null;
+let explicacao    = '';
+let busy          = false;
+let historico     = [];
+let scoresActuais = {};
+let numPergunta   = 0;
+let cartaoAtual   = null; // referência ao cartão de pergunta activo
+
+const NIVEL_LABELS = {
+  emergencia:          '🔴 EMERGÊNCIA',
+  muito_urgente:       '🟠 MUITO URGENTE',
+  urgente:             '🟡 URGENTE',
+  pouco_urgente:       '🔵 POUCO URGENTE',
+  sem_sintomas_alarme: '🟢 SEM ALARME'
+};
+const NIVEL_CORES = {
+  emergencia:          'var(--c-em)',
+  muito_urgente:       'var(--c-mu)',
+  urgente:             'var(--c-ur)',
+  pouco_urgente:       'var(--c-pu)',
+  sem_sintomas_alarme: 'var(--c-sa)'
+};
+const NIVEL_LISTA = [
+  {id:'emergencia',          label:'🔴 Emergência'},
+  {id:'muito_urgente',       label:'🟠 Muito Urgente'},
+  {id:'urgente',             label:'🟡 Urgente'},
+  {id:'pouco_urgente',       label:'🔵 Pouco Urgente'},
+  {id:'sem_sintomas_alarme', label:'🟢 Sem Alarme'},
+];
+
+// ═══════════════════════════════════════════════════════════════
+// DOM HELPERS
+// ═══════════════════════════════════════════════════════════════
+const feed   = () => document.getElementById('feed');
+const inputs = () => document.getElementById('input-area');
+const qtxt   = () => document.getElementById('q-text');
+
+function scrollFim() {
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => window.scrollTo(0, document.body.scrollHeight))
+  );
+}
+function scrollToEl(el) {
+  setTimeout(() => {
+    const r = el.getBoundingClientRect();
+    window.scrollTo(0, window.scrollY + r.top - 80);
+  }, 60);
+}
+
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function addMsg(html, tipo = '') {
+  const d = document.createElement('div');
+  d.className = 'sys-msg' + (tipo ? ' ' + tipo : '');
+  d.innerHTML = html;
+  feed().appendChild(d);
+  return d;
+}
+
+function addSpinner(txt) {
+  const d = document.createElement('div');
+  d.className = 'spin-row';
+  d.id = 'spinner-row';
+  d.innerHTML = `<div class="spin"></div><span>${esc(txt)}</span>`;
+  feed().appendChild(d);
+  return d;
+}
+function remSpinner() {
+  const el = document.getElementById('spinner-row');
+  if (el) el.remove();
+}
+
+function setBusy(v) {
+  busy = v;
+  document.querySelectorAll('.btn-resp, .btn-cert').forEach(b => b.disabled = v);
+  document.getElementById('btn-iniciar').disabled = v;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SIDEBAR
+// ═══════════════════════════════════════════════════════════════
+function renderTree() {
+  const w = document.getElementById('tree-wrap');
+  w.innerHTML = '';
+  historico.forEach(h => {
+    const d = document.createElement('div');
+    d.className = 'tree-item done';
+    const desc = h.desc.length > 26 ? h.desc.slice(0,26)+'…' : h.desc;
+    const ansCls = h.tipo === 'sim' ? 'ans-sim' : h.tipo === 'nao' ? 'ans-nao' : 'ans-talvez';
+    d.innerHTML = `<div class="tree-dot"></div>
+      <span style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:160px" title="${esc(h.desc)}">${esc(desc)}</span>
+      <span class="tree-done-ans ${ansCls}">${esc(h.label)}</span>`;
+    w.appendChild(d);
+  });
+  if (sintoma) {
+    const d = document.createElement('div');
+    d.className = 'tree-item active';
+    const desc = qtxt().textContent;
+    const short = desc.length > 26 ? desc.slice(0,26)+'…' : desc;
+    d.innerHTML = `<div class="tree-dot"></div><span>${esc(short)}</span>`;
+    w.appendChild(d);
+  }
+  if (!historico.length && !sintoma) {
+    w.innerHTML = '<div class="tree-empty">Triagem não iniciada</div>';
+  }
+}
+
+function renderScoresLive(scoresArr) {
+  if (!scoresArr || !scoresArr.length) return;
+  const el = document.getElementById('scores-live');
+  el.innerHTML = '';
+  const ordem = ['emergencia','muito_urgente','urgente','pouco_urgente','sem_sintomas_alarme'];
+  const sorted = [...scoresArr].sort((a,b) => ordem.indexOf(a.nivel_id) - ordem.indexOf(b.nivel_id));
+  sorted.forEach(s => {
+    const color = NIVEL_CORES[s.nivel_id] || 'var(--green)';
+    const item = document.createElement('div');
+    item.className = 'sb-score-item';
+    item.innerHTML = `
+      <div class="sb-score-head">
+        <span style="color:${color}">${esc(s.nivel_txt)}</span>
+        <span class="sb-score-val" style="color:${color}">${s.score_pct}%</span>
+      </div>
+      <div class="sb-bar-bg"><div class="sb-bar" data-pct="${s.score_pct}" style="background:${color};width:0%"></div></div>`;
+    el.appendChild(item);
+  });
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      el.querySelectorAll('.sb-bar').forEach(b => b.style.width = b.dataset.pct + '%');
+    })
+  );
+  renderNivelAtual(scoresArr);
+}
+
+function renderNivelAtual(scoresArr) {
+  const el = document.getElementById('nivel-atual-content');
+  if (!scoresArr || !scoresArr.length) {
+    el.innerHTML = '<div class="sb-nivel-vazio">Inicie uma triagem.</div>';
+    return;
+  }
+  const sorted = [...scoresArr].sort((a,b) => b.score_pct - a.score_pct);
+  const top = sorted[0];
+  if (!top || top.score_pct === 0) {
+    el.innerHTML = '<div class="sb-nivel-vazio">A aguardar respostas…</div>';
+    return;
+  }
+  const cor = NIVEL_CORES[top.nivel_id] || 'var(--green)';
+  const emojis = { emergencia:'🔴', muito_urgente:'🟠', urgente:'🟡', pouco_urgente:'🔵', sem_sintomas_alarme:'🟢' };
+  const bgMap  = { emergencia:'#fff5f5', muito_urgente:'#fff7ed', urgente:'#fffbeb', pouco_urgente:'#eff6ff', sem_sintomas_alarme:'#f0fdf4' };
+  el.innerHTML = `
+    <div class="sb-nivel-card" style="border-color:${cor};background:${bgMap[top.nivel_id]||'#f8fafc'}">
+      <div class="sb-nivel-emoji">${emojis[top.nivel_id]||'⚪'}</div>
+      <div class="sb-nivel-info">
+        <div class="sb-nivel-nome" style="color:${cor}">${esc(top.nivel_txt)}</div>
+        <div class="sb-nivel-sub">score mais elevado</div>
+      </div>
+      <div class="sb-nivel-pct" style="color:${cor}">${top.score_pct}%</div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// API: INICIAR
+// ═══════════════════════════════════════════════════════════════
+async function iniciar() {
+  setBusy(true);
+  historico = []; sintoma = null; scoresActuais = {}; numPergunta = 0; cartaoAtual = null;
+  inputs().classList.remove('active');
+  renderTree();
+  document.getElementById('scores-live').innerHTML =
+    '<div style="font-size:11.5px;color:var(--text-dim)">Aguardando respostas…</div>';
+  document.getElementById('nivel-atual-content').innerHTML =
+    '<div class="sb-nivel-vazio">A aguardar respostas…</div>';
+
+  // Limpar feed (excepto welcome card)
+  const f = feed();
+  while (f.lastChild) f.removeChild(f.lastChild);
+
+  addSpinner('A ligar ao motor de inferência…');
+
+  try {
+    const r = await fetch('/api/start', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+    const d = await r.json();
+    remSpinner();
+    if (d.type === 'pergunta') {
+      // Card de instrução
+      const info = document.createElement('div');
+      info.className = 'info-card';
+      info.innerHTML = `
+        <div class="info-card-icon">🩺</div>
+        <div>
+          <div class="info-card-title">Triagem iniciada</div>
+          <div class="info-card-body">Para cada sintoma responda SIM, NÃO ou TALVEZ. Use o slider para ajustar a certeza.</div>
+          <div class="info-chip-row">
+            <span class="info-chip ic-sim">✓ SIM - tem o sintoma</span>
+            <span class="info-chip ic-nao">✗ NÃO - não tem</span>
+            <span class="info-chip ic-talvez">≈ TALVEZ - incerto</span>
+            <span class="info-chip ic-cert">💡 Porquê - explicação clínica</span>
+          </div>
+        </div>`;
+      f.appendChild(info);
+    }
+    tratarResp(d);
+  } catch(e) {
+    remSpinner();
+    addMsg('<span class="sys-icon">⚠️</span> Não foi possível ligar ao servidor Prolog. Verifique se o <code>server.pl</code> está a correr (<code>swipl server.pl</code>).', 'err');
+    setBusy(false);
+    document.getElementById('btn-iniciar').disabled = false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// API: RESPONDER
+// ═══════════════════════════════════════════════════════════════
+async function responder(tipo, certeza) {
+  if (!sintoma || busy) return;
+
+  const certezaNum = parseInt(certeza) || 100;
+  const cfInterno  = tipo === 'sim' ? certezaNum/100 : tipo === 'nao' ? -(certezaNum/100) : 0.0;
+
+  let label, respostaIcon;
+  if (tipo === 'sim') {
+    label = certezaNum < 100 ? `SIM ${certezaNum}%` : 'SIM';
+    respostaIcon = '✓';
+  } else if (tipo === 'nao') {
+    label = certezaNum < 100 ? `NÃO ${certezaNum}%` : 'NÃO';
+    respostaIcon = '✗';
+  } else {
+    label = 'TALVEZ';
+    respostaIcon = '≈';
+  }
+
+  historico.push({sintoma, desc: qtxt().textContent, label, tipo});
+
+  // Marcar o cartão actual como respondido
+  if (cartaoAtual) {
+    cartaoAtual.classList.add('respondida');
+    const badge = document.createElement('div');
+    badge.className = `pq-resposta resp-${tipo}`;
+    badge.innerHTML = `
+      <span class="pq-resp-icon">${respostaIcon}</span>
+      <span class="pq-resp-label">${esc(label)}</span>
+      <span class="pq-resp-cert">CF = ${cfInterno.toFixed(2)}</span>`;
+    cartaoAtual.appendChild(badge);
+    cartaoAtual = null;
+  }
+
+  const sintomaEnviar = sintoma;
+  setBusy(true);
+  inputs().classList.remove('active');
+  sintoma = null;
+  addSpinner('A calcular scores MYCIN…');
+
+  try {
+    const r = await fetch('/api/answer', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({sintoma: sintomaEnviar, tipo, certeza: certezaNum})
+    });
+    const d = await r.json();
+    remSpinner();
+    tratarResp(d);
+  } catch(e) {
+    remSpinner();
+    addMsg('<span class="sys-icon">⚠️</span> Falha de comunicação com o servidor.', 'err');
+    setBusy(false);
+  }
+}
+
+function responderComCerteza(tipo) {
+  const cert = parseInt(document.getElementById('cert-slider').value) || 80;
+  responder(tipo, cert);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TRATAR RESPOSTA DO SERVIDOR
+// ═══════════════════════════════════════════════════════════════
+function tratarResp(d) {
+  if (d.type === 'pergunta') {
+    mostrarPergunta(d);
+  } else if (d.type === 'resultado') {
+    mostrarResultado(d);
+  } else {
+    addMsg('<span class="sys-icon">⚠️</span> ' + esc(d.message || JSON.stringify(d)), 'err');
+    setBusy(false);
+    document.getElementById('btn-iniciar').disabled = false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MOSTRAR PERGUNTA - cartão visual
+// ═══════════════════════════════════════════════════════════════
+function mostrarPergunta(d) {
+  sintoma    = d.sintoma;
+  explicacao = d.explicacao || '';
+  numPergunta++;
+
+  const card = document.createElement('div');
+  card.className = 'pergunta-card';
+  card.innerHTML = `
+    <div class="pq-topo">
+      <span class="pq-num-badge">Pergunta ${numPergunta}</span>
+      ${d.explicacao ? `<button class="pq-why-btn" onclick="togglePorque(this)">💡 Porquê esta pergunta?</button>` : ''}
+    </div>
+    <div class="pq-body">
+      <div class="pq-sintoma-texto">${esc(d.descricao)}</div>
+      ${d.explicacao ? `<div class="pq-why-text" id="pq-why-text-${numPergunta}">${esc(d.explicacao)}</div>` : ''}
+    </div>`;
+
+  feed().appendChild(card);
+  cartaoAtual = card;
+
+  qtxt().textContent = d.descricao;
+  const btnPq = document.getElementById('btn-pq');
+  if (btnPq) btnPq.style.display = d.explicacao ? '' : 'none';
+  inputs().classList.add('active');
+  renderTree();
+  if (d.scores) renderScoresLive(d.scores);
+  setBusy(false);
+  scrollToEl(card);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PORQUÊ - toggle dentro do cartão
+// ═══════════════════════════════════════════════════════════════
+function togglePorque(btn) {
+  const texto = btn.closest('.pq-body') ?
+    btn.closest('.pq-body').querySelector('.pq-why-text') :
+    btn.closest('.pergunta-card').querySelector('.pq-why-text');
+  if (!texto) return;
+  texto.classList.toggle('aberto');
+  btn.style.background = texto.classList.contains('aberto') ? '#fef9c3' : '';
+  btn.style.borderColor = texto.classList.contains('aberto') ? '#fcd34d' : '';
+  btn.style.color = texto.classList.contains('aberto') ? '#92400e' : '';
+}
+
+// também chamado pelo botão da input-area
+function mostrarPorque() {
+  if (cartaoAtual) {
+    const btn = cartaoAtual.querySelector('.pq-why-btn');
+    if (btn) togglePorque(btn);
+  }
+  scrollFim();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MOSTRAR RESULTADO
+// ═══════════════════════════════════════════════════════════════
+function mostrarResultado(d) {
+  sintoma = null;
+  inputs().classList.remove('active');
+
+  if (d.scores) renderScoresLive(d.scores);
+
+  const card = document.createElement('div');
+  card.className = `result-card rc-nivel-${d.nivel_id}`;
+  const cor = NIVEL_CORES[d.nivel_id] || 'var(--green)';
+  const j   = d.justificacao;
+
+  // Scores HTML
+  let scoresHTML = '';
+  if (d.scores) {
+    const ordem  = ['emergencia','muito_urgente','urgente','pouco_urgente','sem_sintomas_alarme'];
+    const sorted = [...d.scores].sort((a,b) => ordem.indexOf(a.nivel_id) - ordem.indexOf(b.nivel_id));
+    scoresHTML   = sorted.map(s => {
+      const c   = NIVEL_CORES[s.nivel_id] || 'var(--green)';
+      const rec = s.recomendado;
+      return `<div class="score-row">
+        <span class="score-name${rec?' rec':''}" style="color:${c}">${rec?'▶ ':''}${esc(s.nivel_txt)}</span>
+        <div class="score-bar-bg"><div class="score-bar-fill" data-pct="${s.score_pct}" style="background:${c};width:0%"></div></div>
+        <span class="score-pct-val" style="color:${c}">${s.score_pct}%</span>
+        ${rec ? `<span class="score-rec-tag" style="background:${c}">rec.</span>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  // Premissas HTML
+  let premHTML = '';
+  if (j.premissas && j.premissas.length) {
+    premHTML = j.premissas.map(p =>
+      `<span class="prem-chip ${p.presente?'presente':'ausente'}">${p.presente?'':'✗ '}${esc(p.desc)}</span>`
+    ).join('');
+  }
+
+  // Sintomas confirmados HTML
+  let sintsHTML = '<em style="color:var(--text-dim);font-size:12.5px">nenhum</em>';
+  if (d.sintomas && d.sintomas.length) {
+    sintsHTML = '<div class="sint-list">' + d.sintomas.map(s =>
+      `<div class="sint-item"><div class="sint-dot"></div>${esc(s.desc)}<span class="sint-cf">CF=${s.cf_pct}%</span></div>`
+    ).join('') + '</div>';
+  }
+
+  // Regras secundárias HTML
+  let secHTML = '';
+  if (j.regras_secundarias && j.regras_secundarias.length) {
+    secHTML = `<div>
+      <div class="rc-sec-title">Regras Secundárias</div>
+      <div class="sec-list">${j.regras_secundarias.map(r =>
+        `<div class="sec-item">
+          <div class="sec-item-head">
+            <span class="sec-id">[${esc(r.id)}]</span>
+            <span class="sec-pct">${r.certeza_pct}%</span>
+          </div>${esc(r.explicacao)}</div>`
+      ).join('')}</div></div>`;
+  }
+
+  card.innerHTML = `
+    <div class="rc-header">
+      <div>
+        <div class="rc-badge">${esc(NIVEL_LABELS[d.nivel_id] || d.nivel)}</div>
+        <div class="rc-rec">${esc(d.recomendacao)}</div>
+      </div>
+      <div class="rc-confianca">
+        <div class="rc-pct">${d.confianca_pct}%</div>
+        <div class="rc-pct-label">Confiança MYCIN</div>
+      </div>
+    </div>
+    <div class="rc-body">
+      <div>
+        <div class="rc-sec-title">Scores por Nível</div>
+        <div class="scores-list">${scoresHTML}</div>
+      </div>
+      <div>
+        <div class="rc-sec-title">Regra Principal</div>
+        <div class="just-regra">Regra <strong>[${esc(j.regra_principal||'-')}]</strong> activada com <strong>${j.certeza_pct||0}%</strong> de certeza.</div>
+        ${premHTML ? `<div class="just-prem-list">${premHTML}</div>` : ''}
+        <div class="just-expl">${esc(j.explicacao || j.texto || '')}</div>
+      </div>
+      ${secHTML}
+      <div>
+        <div class="rc-sec-title">Sintomas Confirmados</div>
+        ${sintsHTML}
+      </div>
+    </div>`;
+
+  feed().appendChild(card);
+
+  // Animar barras
+  setTimeout(() => {
+    card.querySelectorAll('.score-bar-fill').forEach(el => el.style.width = el.dataset.pct + '%');
+  }, 80);
+
+  submeter(d.nivel_id, 'confirmado', null);
+  scrollToEl(card);
+  setBusy(false);
+}
+
+async function submeter(nivelId, validacao, nivelCorreto) {
+  const card = document.getElementById('val-card');
+  if (card) card.classList.add('used');
+
+  const body = {nivel_id: nivelId, validacao};
+  if (nivelCorreto) body.nivel_correto = nivelCorreto;
+
+  try {
+    await fetch('/api/validate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    addMsg('<span class="sys-icon">✅</span> Triagem guardada em <code>triagens.csv</code>.', 'ok');
+  } catch(e) {
+    addMsg('<span class="sys-icon">⚠️</span> Não foi possível guardar a sessão.', 'err');
+  }
+  finalizar();
+}
+
+function finalizar() {
+  const msgFinal = document.createElement('div');
+  msgFinal.className = 'msg-final';
+  msgFinal.innerHTML = `
+    <p>Triagem concluída. Em caso de dúvida contacte o <strong>SNS24: 808 24 24 24</strong></p>
+    <p style="margin-top:6px">Em emergência real ligue sempre <strong style="color:var(--c-em)">112</strong>.</p>`;
+  feed().appendChild(msgFinal);
+
+  const btn = document.getElementById('btn-iniciar');
+  btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg> Nova Triagem`;
+  btn.disabled = false;
+  historico = []; sintoma = null; cartaoAtual = null;
+  renderTree(); scrollFim();
+}
+</script>
+</body>
+</html>

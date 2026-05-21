@@ -1,0 +1,745 @@
+-----------------------------
+Descrição do Sistema SNS24 - Versão Completa
+(Parte A + Parte B + Visualização Web)
+-----------------------------
+
+Nota Introdutória
+
+    Este documento descreve a arquitetura completa do sistema de triagem SNS24
+    na sua versão final, que integra três camadas distintas:
+
+        Parte A - Motor de inferência MYCIN com regras de produção escritas
+                  manualmente por um especialista clínico.
+        Parte B - Pipeline de aprendizagem automática (ML) que aprende com os
+                  dados acumulados de triagens passadas e exporta automaticamente
+                  novos conhecimento (regras e ordem de questionamento) em formato
+                  compatível com o motor da Parte A.
+
+        Visualização - Interface web (HTML + JavaScript) servida por um servidor
+                       HTTP em Prolog (SWI-Prolog http/thread_httpd) que expõe o
+                       motor MYCIN como uma API REST e permite interação a partir
+                       de qualquer browser, substituindo a interface de terminal
+                       (interface.pl).
+
+O sistema é composto por onze ficheiros com responsabilidades bem delimitadas:
+
+        base_conhecimento_a.pl  - Conhecimento clínico manual (Parte A)
+        base_conhecimento_b.pl  - Conhecimento gerado por ML (Parte B, gerado)
+        base_dados.pl           - Memória de trabalho dinâmica (factos da sessão)
+        sistema_inferencia.pl   - Motor MYCIN + combinação de evidências
+        interface.pl            - Interface de terminal (modo CLI, obsoleto com o server)
+        main.pl                 - Orquestrador CLI (carregamento + retreino)
+        guardar_triagem.pl      - Persistência de sessões no CSV (online learning)
+        gerar_dataset.py        - Geração do dataset sintético inicial (Parte B)
+        treinar_exportar.py     - Treino dos modelos ML e exportação de base_b (Parte B)
+        server.pl               - Servidor HTTP + API REST (Visualização)
+        index.html              - Interface web (Visualização)
+
+-----> base_conhecimento_a.pl  [PARTE A - CONHECIMENTO MANUAL REVISTO]
+
+Descrição Geral
+
+    Este ficheiro é o cérebro estático da Parte A. Contém exclusivamente
+    declarações de conhecimento clínico - não executa ações. A versão atual
+    é uma revisão corrigida da versão P1MAX anterior, com nove correções
+    documentadas (FIX-A a FIX-I) que corrigem falhas de cobertura clínica e
+    inconsistências de CF entre regras simples e as suas combinações mais
+    específicas.
+
+    O predicado :- multifile regra/4 e :- multifile explicacao_regra/2 são
+    essenciais para a integração com a Parte B: declaram que estas cláusulas
+    podem existir em múltiplos ficheiros, permitindo que base_conhecimento_b.pl
+    acrescente as suas próprias regras ao mesmo espaço de predicados sem conflito.
+
+Secções
+
+    1. Dicionário de Sintomas (sintoma/2)
+
+        Mapeia os 23 identificadores internos (átomos Prolog) para textos amigáveis
+        apresentados ao utilizador. Exemplo:
+            sintoma(resp_dificuldade, 'Falta de ar grave (nao consegue falar...)')
+        Este dicionário é usado pela interface de terminal (interface.pl) e pelo
+        servidor HTTP (server.pl/construir_pergunta) para apresentar cada pergunta
+        de forma legível.
+
+    2. Níveis de Triagem (nivel/3)
+
+        Define os cinco níveis com texto e recomendação clínica:
+            nivel(emergencia,          'EMERGÊNCIA', 'Ligue 112 imediatamente.').
+            nivel(muito_urgente,       'MUITO URGENTE', '...').
+            ...
+        Usado pelo motor (mostrar_resultado, construir_resultado) para apresentar
+        o diagnóstico final.
+
+    3. Regras de Produção (regra/4)  [ESTRUTURA CENTRAL]
+
+        Formato: regra(Id, se(ListaPremissas), entao(Nivel), CF).
+
+        As 30 regras cobrem cinco níveis clínicos. Cada regra tem um ID único
+        (prefixo r_) que a distingue das regras geradas por ML (prefixo dt_).
+        As premissas podem ser positivas (sintoma presente) ou negadas com
+        nao(sintoma) (sintoma explicitamente ausente).
+
+        Exemplo: regra(r_mu1, se([dor_peito, dor_irradia]), entao(muito_urgente), 0.90).
+        Estrutura: regra(IdRegra, se([Premissas]), entao(Nivel), CF).
+        O que faz: Cada regra encapsula um padrão clínico. As premissas são uma lista de
+        sintomas (positivos ou negados com nao/1) que, se confirmados, ativam a regra com
+        o grau de confiança CF especificado. Os CFs seguem uma escala de 0 a 1, onde valores
+        acima de 0.85 representam certeza muito elevada e valores abaixo de 0.65 representam
+        evidência sugestiva mas não conclusiva.
+
+        > Premissas Negadas - nao(sintoma):
+            Exemplo: regra(r_mu6, se([dor_abd, nao(febre_alta)]), entao(muito_urgente), 0.60).
+            Lógica: A presença de nao(febre_alta) na premissa exige que o sintoma febre_alta
+            tenha sido explicitamente negado pelo doente (CF < 0). Se o sintoma não tiver sido
+            perguntado (ausência de facto), a regra não dispara - comportamento conservador
+            que evita conclusões precipitadas.
+
+        > Hierarquia de CFs:
+            As regras com mais sintomas confirmados recebem CFs iguais ou superiores às regras
+            com menos sintomas para o mesmo nível. Por exemplo, r_mu8 (fala_dificil + fraqueza_lado,
+            CF=0.92) tem mais confiança do que r_mu3 (fala_dificil isolado, CF=0.80), porque
+            mais evidência convergente deve aumentar a certeza, nunca diminuí-la.
+
+    4. Ordem de Questionamento (ordem_sintomas/1)
+
+        Lista os 23 sintomas do mais grave para o mais benigno. É o fallback
+        usado pelo sistema quando a Parte B não está disponível. Quando a Parte B
+        está carregada, o predicado obter_ordem_sintomas/1 em sistema_inferencia.pl
+        usa ordem_sintomas_ml/1 em sua preferência.
+
+    5. Explicações das Regras (explicacao_regra/2)
+
+        Associa a cada regra (por Id) uma justificação clínica em texto legível.
+        Usada por mostrar_justificacao_final/1 (terminal) e construir_justificacao/2
+        (servidor HTTP) para explicar ao utilizador qual a regra principal que
+        determinou o diagnóstico.
+        O predicado é declarado multifile para que as explicações geradas
+        automaticamente pela Parte B (para regras dt_NNN) coexistam no mesmo espaço.
+
+    6. Explicações dos Sintomas (explicacao/2)
+
+        Associa a cada sintoma uma justificação clínica, exibida quando o
+        utilizador pressiona "p." na interface de terminal ou o botão "Porquê?"
+        na interface web. Inclui um fallback genérico que cobre qualquer sintoma
+        não documentado explicitamente.
+
+-----> base_conhecimento_b.pl  [PARTE B - CONHECIMENTO GERADO POR ML]
+
+Descrição Geral
+
+    Este ficheiro é gerado automaticamente pelo script treinar_exportar.py após
+    cada triagem concluída (ou manualmente com o comando retreinar.). Nunca deve
+    ser editado à mão - qualquer alteração será sobrescrita no próximo retreino.
+
+    O ficheiro é 100% compatível com o motor MYCIN da Parte A: usa exatamente os
+    mesmos predicados (regra/4, explicacao_regra/2) com a mesma sintaxe. As
+    diretivas :- multifile garantem que as cláusulas de ambos os ficheiros são
+    fundidas no mesmo espaço de predicados em tempo de carga.
+
+    O ficheiro contém três secções:
+
+    1. ordem_sintomas_ml/1
+
+        Lista os 23 sintomas reordenados por "feature importance" calculada
+        pelo Random Forest sobre o dataset acumulado. Sintomas com maior poder
+        discriminativo aparecem primeiro, maximizando a probabilidade de saída
+        antecipada (limiar 0.80 em atingiu_limiar_nivel/1).
+        A importância real do RF é combinada com um bónus clínico de prioridade
+        que eleva artificialmente os sintomas de emergência (sem_pulso,
+        hemorragia, etc.) para garantir que nunca descem na ordenação apenas
+        por serem estatisticamente raros nos dados de treino.
+
+    2. Regras NOVAS geradas pela Decision Tree (dt_NNN)
+
+        Cada caminho raiz→folha da árvore com pureza >= MIN_CF (0.60) e
+        suportado por >= MIN_SAMPLES (5) exemplos torna-se uma regra Prolog.
+        Exemplo:
+            regra(dt_002, se([nao(dor_leve), nao(constipacao),
+                              tosse_febre, febre_alta]), entao(urgente), 1.0).
+        Estas regras são NOVAS - não duplicam nem sobrescrevem as regras da
+        Parte A. O motor combina-as automaticamente via findall sobre todas as
+        cláusulas regra/4 carregadas, independentemente da sua origem.
+
+    3. explicacao_regra/2 automática para cada dt_NNN
+
+        Gerada pela função gerar_explicacao() do script Python. Distingue
+        premissas positivas ("presença de") de negadas ("ausência de") e
+        inclui o nível, a confiança e o número de exemplos de suporte.
+        Compatível com mostrar_justificacao_final/1 (terminal) e com
+        construir_justificacao/2 (servidor HTTP).
+
+-----> base_dados.pl  [MEMÓRIA DE TRABALHO]
+
+Descrição Geral
+
+    Este ficheiro é responsável pela memória de trabalho dinâmica do sistema durante uma sessão
+    de triagem. Ao contrário da base de conhecimento (estática), este ficheiro contém predicados
+    que mudam em tempo real à medida que o doente responde às perguntas.
+    Ficheiro simples com duas responsabilidades: declarar facto/2 como predicado
+    dinâmico e fornecer o predicado limpar/0. Não contém lógica de inferência.
+
+    facto(Sintoma, CF) é o único tipo de facto dinâmico do sistema.
+    CF varia entre -1.0 e 1.0:
+        CF > 0   → sintoma confirmado como presente (grau de certeza = CF)
+        CF < 0   → sintoma negado explicitamente (grau de certeza da negação = |CF|)
+        CF = 0.0 → incerteza total / "não sei"
+        CF não existente → sintoma ainda não perguntado (tratado como ausência
+                           implícita, mas sem confirmar negação)
+
+    A distinção entre CF = -1.0 (negado) e facto inexistente (não perguntado)
+    é fundamental para o correto funcionamento das premissas nao(Sintoma) no
+    motor de inferência: só são satisfeitas por negações explícitas.
+
+-----> sistema_inferencia.pl  [MOTOR MYCIN - NÚCLEO DO SISTEMA]
+
+Descrição Geral
+
+    Este ficheiro é o motor central do sistema. É aqui que reside o algoritmo MYCIN adaptado que
+    combina as regras da base de conhecimento com os factos da sessão actual para calcular os
+    scores de cada nível de triagem. Ao contrário da versão de árvore de decisão (que seguia um
+    único caminho), este motor avalia todas as regras em paralelo e combina a sua evidência numa
+    pontuação de confiança composta.
+
+Secções
+
+    1. Configuração Global
+
+        todos_niveis/1: Define a lista ordenada dos cinco níveis de triagem, do menos grave para
+        o mais grave. Esta ordem afecta a apresentação visual dos resultados.
+        limiar_saida/1: Define o valor de CF combinado (0.80) acima do qual o sistema pode
+        terminar o questionário antecipadamente, sem precisar de perguntar todos os sintomas.
+        Porquê do limiar: Numa emergência real, perguntar 23 sintomas levaria tempo valioso.
+        Se após 3 perguntas o sistema já tiver CF=0.92 para emergencia, a triagem termina
+        imediata e o doente é instruído a ligar o 112.
+
+    2. Obtenção da Ordem de Sintomas (obter_ordem_sintomas/1)
+
+        O que faz: Verifica se o predicado ordem_sintomas_ml/1 existe na base de conhecimento
+        (indicando que a Parte B foi treinada). Se existir, usa essa ordem (optimizada por
+        Random Forest). Se não existir, recorre à ordem manual ordem_sintomas/1 da Parte A.
+        Porquê: Esta verificação dinâmica com predicate_property/2 garante degradação graciosa
+        - o sistema funciona correctamente mesmo antes do primeiro treino ML, e beneficia
+        automaticamente da ordem optimizada assim que o treino é concluído.
+
+    3. Ponto de Entrada (diagnostico/1)
+
+        O que faz: Imprime as instruções iniciais, obtém a ordem de sintomas e inicia o loop de
+        questionamento recursivo. Devolve NivelId (o identificador do nível concluído) para que
+        seja guardado no CSV de retreino.
+        Diferença face à versão A original: Em vez de percorrer uma árvore de decisão com
+        um único caminho, chama perguntar_sintomas/4, que itera sobre a lista ordenada e reavalia
+        todos os scores após cada resposta.
+
+    4. Loop de Questionamento (perguntar_sintomas/4)
+
+        > Caso Base:
+            Quando a lista de sintomas fica vazia (todos foram perguntados), calcula os scores
+            finais e apresenta o resultado.
+        > Caso Recursivo:
+            Pergunta o primeiro sintoma da lista, guarda o facto e verifica se o limiar de saída
+            antecipada foi atingido. Se sim, termina; se não, chama-se recursivamente com o
+            resto da lista.
+        Porquê da recursividade: É a forma natural em Prolog de iterar sobre listas. Cada chamada
+        recursiva representa um passo no questionário, mantendo o código declarativo e legível.
+
+    5. Saída Antecipada (atingiu_limiar_nivel/1)
+
+        O que faz: Após cada resposta, recalcula todos os scores combinados para todos os níveis.
+        Se qualquer nível atingir CF >= 0.80, devolve verdadeiro e o questionário termina.
+        Porquê: O limiar é aplicado sobre o score COMBINADO do nível (soma MYCIN de todas as
+        regras que apontam para esse nível), não sobre uma regra isolada. Isto significa que
+        duas regras moderadas (CF=0.65 e CF=0.70) podem juntas superar o limiar mesmo que
+        nenhuma o faça individualmente - comportamento clinicamente correcto.
+
+    6. Motor de Regras (avaliar_regra/3)
+
+        O que faz: Para cada regra da base de conhecimento, verifica se todas as suas premissas
+        estão confirmadas na memória de trabalho. Se sim, calcula o CF final da regra como
+        CF_premissas × CF_base_regra.
+        Detalhe técnico - AND sobre premissas: O CF acumulado das premissas é calculado como
+        o mínimo dos CFs dos sintomas confirmados (lógica AND conservadora). Se o doente
+        disse "tenho dor no peito com 80% de certeza" e "a dor irradia com 90% de certeza",
+        o CF da premissa combinada é min(0.80, 0.90) = 0.80.
+
+    7. Avaliação de Premissas (avaliar_premissas/3)
+
+        > Premissa Positiva (sintoma presente):
+            Verifica se existe um facto(Sintoma, CF) com CF > 0. Propaga o mínimo acumulado.
+        > Premissa Negada - nao(S):
+            Verifica se existe um facto(S, CF) com CF < 0 (sintoma explicitamente negado).
+            Usa o valor absoluto do CF do facto negado como força da evidência negativa.
+            Comportamento conservador: se o sintoma não foi perguntado (sem facto), nao(S)
+            falha - o sistema não assume que ausência de pergunta equivale a negação.
+        > Sintoma Não Perguntado ou Neutro (CF=0):
+            A regra não dispara. O sistema não faz inferências a partir de silêncio.
+
+    8. Cálculo e Combinação de Scores (calcular_scores_finais/2 e combinar_cfs/2)
+
+        O que faz: Para cada nível, usa findall/3 para recolher os CFs de TODAS as regras activadas e combina-os. 
+        Nota Importante sobre CFs: O sistema não utiliza o MYCIN puro, mas sim uma variante adaptada. O motor de inferência (combinar_cfs/2) apenas processa e combina CFs positivos.
+        - Valores de CF > 0 aumentam a confiança no nível (fórmula: CF_combinado = CF1 + CF2 - (CF1 × CF2)).
+        - Valores de CF < 0 (sintomas negados) não são usados na combinação matemática. Servem exclusivamente como "chaves" para satisfazer premissas negadas nao(S) nas regras. Quando um sintoma é negado (ex: CF = -1.0), o motor extrai o valor absoluto (|CF|) e converte-o numa força positiva para ativar regras que exijam essa ausência. Isto evita a complexidade das regras de atenuação de CFs opostos do MYCIN original, garantindo um comportamento mais previsível. 
+        
+    9. Apresentação do Resultado (mostrar_resultado/2)
+
+        O que faz: Identifica o nível com score máximo, verifica se supera o limiar mínimo
+        de 0.05 (caso contrário, atribui sem_sintomas_alarme por segurança), e imprime o
+        resultado formatado com barras de progresso visuais para cada nível.
+
+    10. Justificação Final (mostrar_justificacao_final/1)
+
+        O que faz: Identifica a regra com CF mais alto para o nível diagnosticado (regra principal),
+        extrai as suas premissas e a sua explicacao_regra/2. Se a regra for da Parte B (dt_NNN),
+        apresenta a explicação gerada automaticamente pelo Python. Lista também as regras
+        secundárias que contribuíram para o score combinado.
+        Porquê: O utilizador vê exactamente qual regra foi mais decisiva, quais premissas estavam
+        confirmadas e qual a justificação clínica - tanto para regras escritas por peritos
+        (Parte A) como para regras geradas por Machine Learning (Parte B).
+
+-----> interface.pl  [INTERFACE DE TERMINAL - MODO CLI]
+
+Descrição Geral
+
+    Módulo de comunicação com o utilizador via stdin/stdout. Usado apenas no
+    modo CLI (main.pl). O servidor HTTP (server.pl) não carrega este módulo -
+    implementa a sua própria lógica de conversão de resposta em construir_pergunta
+    e handle_answer_safe.
+    O predicado perguntar/1 apresenta o sintoma, aceita as opções s/n/t/p e
+    solicita o grau de certeza em percentagem (0 a 100). O CF é armazenado via
+    asserta(facto(Sintoma, CF)):
+        s + 80.  → facto(Sintoma,  0.80)
+        n + 100. → facto(Sintoma, -1.00)
+        t        → facto(Sintoma,  0.00)
+        p        → exibe explicacao/2 e repete a pergunta
+
+    A opção "p." implementa a rastreabilidade P1MAX no terminal: o utilizador
+    pode perguntar "porquê esta questão?" em qualquer ponto da triagem.
+
+-----> guardar_triagem.pl  [PERSISTÊNCIA - ONLINE LEARNING]
+
+Descrição Geral
+
+    Este módulo é a ponte entre o motor de inferência e o pipeline de ML. Após cada triagem concluída, converte os factos da sessão (facto/2) em
+    valores binários (CF > 0 → 1, caso contrário → 0) e acrescenta uma linha
+    ao ficheiro triagens.csv com o vetor de sintomas e o nível diagnosticado.
+    A conversão para binário é intencional: o modelo ML trabalha com dados
+    binários (sintoma presente/ausente). A granularidade do CF do utilizador
+    (ex: 0.70) é irrelevante para o treino - o que importa é se o sintoma
+    foi considerado presente ou ausente na triagem.
+    O predicado escrever_linha_csv/2 cria automaticamente o ficheiro com
+    cabeçalho na primeira execução (modo write) e usa append nas seguintes,
+    garantindo que o dataset cresce de forma incremental sem duplicar o cabeçalho.
+    A ordem dos sintomas em sintomas_csv/1 deve ser idêntica à lista SINTOMAS
+    em gerar_dataset.py e treinar_exportar.py. Qualquer divergência corromperia
+    o dataset silenciosamente.
+
+-----> main.pl  [ORQUESTRADOR CLI]
+
+Descrição Geral
+
+    Ponto de entrada para o modo de terminal. Carrega os módulos por ordem
+    (base_dados → base_conhecimento_a → guardar_triagem → interface →
+    sistema_inferencia) e tenta carregar base_conhecimento_b.pl se existir.
+    O predicado iniciar/0 orquestra o ciclo completo de uma triagem:
+        1. limpar/0 - apaga factos de sessões anteriores
+        2. diagnostico(NivelId) - ciclo de questionamento + resultado
+        3. guardar_e_retreinar(NivelId) - persiste no CSV e retreina o modelo
+        4. limpar/0 - prepara para a próxima sessão
+
+    O retreino é feito via correr_python/2, que tenta python3 e python como
+    fallback, verificando o código de saída. Se o Python não estiver disponível
+    ou o retreino falhar, o sistema continua a funcionar com o modelo anterior -
+    degradação graciosa sem falha total.
+    recarregar_base_b/0 usa unload_file/1 + consult/1 para substituir as
+    cláusulas da Parte B em memória sem reiniciar o SWI-Prolog, tornando o
+    retreino transparente durante uma sessão de múltiplas triagens.
+
+-----> gerar_dataset.py  [PARTE B - GERAÇÃO DO DATASET INICIAL]
+
+Descrição Geral
+
+    Script Python que gera o ficheiro triagens.csv inicial quando o sistema
+    é executado pela primeira vez (antes de existirem triagens reais). Lê as
+    regras de produção de base_conhecimento_a.pl via expressão regular e
+    sintetiza exemplos de treino a partir dessas regras.
+
+    Lógica de Geração
+
+    Para cada regra r com fator CF, gera N = max(5, round(CF × 15)) exemplos:
+        - Sintomas positivos da regra → valor 1
+        - Sintomas negados nao() da regra → valor 0
+        - Restantes sintomas → 0 com 5% de probabilidade de flip (ruído)
+
+    O ruído é introduzido para simular incerteza clínica real e evitar que a
+    Decision Tree faça overfitting a exemplos artificialmente perfeitos.
+    São adicionados 25 exemplos "saudáveis" (sem sintomas de alarme, apenas
+    mal_estar/constipacao/febre_baixa com probabilidades baixas) para equilibrar
+    a classe sem_sintomas_alarme.
+    O ficheiro inclui um fallback com regras embutidas (get_embedded_rules()) para
+    o caso de base_conhecimento_a.pl não estar acessível no caminho de trabalho.
+
+-----> treinar_exportar.py  [PARTE B - TREINO E EXPORTAÇÃO]
+
+Descrição Geral
+
+    Script Python que lê triagens.csv, treina dois modelos sklearn e exporta
+    base_conhecimento_b.pl. É invocado automaticamente por main.pl após cada
+    triagem ou manualmente com o comando retreinar.
+    Os dois modelos têm papéis completamente distintos:
+
+    1. Random Forest (200 árvores) → ordem_sintomas_ml/1
+
+        A importância de cada sintoma é calculada como a média da redução de
+        impureza Gini sobre todas as árvores e todas as divisões onde esse
+        sintoma aparece. É o algoritmo correto para esta tarefa porque produz
+        uma importância estável e agregada; uma árvore individual daria uma
+        importância dependente da raiz escolhida.
+        Um bónus clínico de prioridade (CLINICAL_BONUS) é somado às importâncias
+        brutas para garantir que sintomas de emergência (sem_pulso, hemorragia,
+        resp_dificuldade, sem_respiracao, inconsciente, convulsoes) nunca
+        desçam na ordenação por serem estatisticamente raros.
+
+    2. Decision Tree (max_depth=4) → regras dt_NNN
+
+        A profundidade máxima limita o número de regras geradas e a complexidade
+        das suas premissas (máx. 4 condições por regra). Cada caminho raiz→folha
+        é extraído pela função extrair_regras_dt:
+            - Ramo esquerdo (feature <= 0.5): sintoma ausente → nao(sintoma)
+            - Ramo direito (feature > 0.5):  sintoma presente → sintoma
+            - CF da folha = proporção da classe maioritária (pureza)
+            - Filtros: CF >= 0.60 e n_exemplos >= 5
+
+        As regras geradas são exportadas em Prolog com o mesmo formato exato
+        das regras da Parte A. A numeração dt_NNN é sequencial e reinicia a
+        cada retreino - não existe persistência de IDs entre versões do modelo.
+
+    Exportação
+
+        O ficheiro base_conhecimento_b.pl é gerado com as diretivas :- multifile
+        e :- discontiguous necessárias, a lista ordem_sintomas_ml/1 comentada com
+        a tabela completa de importâncias, e as regras agrupadas por nível
+        (emergência → sem_alarme) com o respetivo explicacao_regra/2 automático.
+
+-----> server.pl  [VISUALIZAÇÃO - SERVIDOR HTTP + API REST]
+
+Descrição Geral
+
+    Este ficheiro substitui main.pl quando o modo de utilização é web. Usa as
+    bibliotecas http/thread_httpd e http/http_json do SWI-Prolog para criar um
+    servidor HTTP multithreaded na porta 8080. O motor MYCIN (sistema_inferencia.pl,
+    base_conhecimento_a.pl, base_conhecimento_b.pl) é carregado diretamente,
+    não existindo uma segunda implementação do raciocínio - o servidor é uma
+    camada de transporte sobre o mesmo motor que o modo CLI usa.
+
+    Carregamento de Módulos
+
+    Os ficheiros são carregados com caminhos absolutos calculados por server_dir/1,
+    tornando o servidor independente do diretório de trabalho corrente (cwd). Todos
+    os avisos e erros de carregamento são dirigidos para user_error (stderr) para
+    não poluir o stdout nem o socket HTTP com texto inesperado.
+
+    Estado da Sessão
+
+    O predicado dinâmico session_sintomas/1 mantém a lista de sintomas ainda por
+    perguntar durante a sessão atual. Os factos da sessão continuam em facto/2
+    (base_dados.pl). Um mutex (sns_mutex via with_mutex/2) garante atomicidade
+    entre pedidos HTTP concorrentes - o servidor é multithreaded mas a sessão
+    é single-user.
+    NOTA: A arquitetura de sessão atual é single-user. Em produção real com
+    múltiplos utilizadores simultâneos seria necessário um mecanismo de sessão
+    por token (ex: um par session_sintomas(Token, Lista) e facto(Token, S, CF)).
+
+    Endpoints
+
+    POST /api/start
+
+        Inicia uma nova triagem. Chama limpar/0, lê a ordem de sintomas via
+        obter_ordem_sintomas/1 (preferindo ML se disponível), armazena a lista
+        em session_sintomas/1 e devolve a primeira pergunta como JSON:
+            { type:"pergunta", sintoma:"...", descricao:"...",
+              explicacao:"...", scores:[...] }
+
+        O campo scores na pergunta devolve os scores MYCIN calculados com os
+        factos já registados até ao momento (inicialmente todos zero). Isto
+        permite ao frontend atualizar o painel lateral em tempo real após cada
+        resposta, mesmo antes do resultado final.
+        O bloco with_output_to(string(_), ...) envolve toda a lógica para
+        suprimir qualquer write/nl que possa ocorrer nos módulos carregados
+        (sistema_inferencia.pl escreve cabeçalhos no modo CLI). Sem este
+        envoltório, texto impresso antes dos headers HTTP causaria erros 500.
+
+    POST /api/answer
+
+        Recebe { sintoma, tipo, certeza } e regista o CF via tipo_para_cf/3:
+            sim    + certeza →  certeza/100.0
+            nao    + certeza → -certeza/100.0
+            talvez           →  0.0
+
+        Após registar o facto, verifica se a lista de sintomas está esgotada
+        ou se algum nível atingiu o limiar de saída antecipada (MaxCF >= 0.80).
+        Consoante o caso, devolve:
+            { type:"pergunta", ... }   - próxima pergunta
+            { type:"resultado", ... }  - diagnóstico final
+
+        A resposta de resultado inclui: nivel_id, nivel (texto), recomendacao,
+        confianca_pct, scores (array), justificacao (objeto estruturado) e
+        sintomas (lista de sintomas confirmados com CF%).
+
+    POST /api/validate
+
+        Recebe o payload { "nivel_id": "...", "validacao": "confirmado" } enviado automaticamente pelo frontend mal o resultado é apresentado ao utilizador.
+        Chama guardar_triagem(NivelId), garantindo a persistência imediata da sessão em triagens.csv.
+        Devolve { ok:true, nivel:"...", guardado:true }.
+
+    Construção do JSON de Resultado
+
+    construir_resultado/2 agrega toda a informação numa única resposta JSON.
+    construir_justificacao/2 extrai as regras ativas via avaliar_regra/3,
+    ordena-as por CF descendente, e constrói um objeto estruturado com:
+        - regra_principal: ID e certeza da regra com maior contribuição
+        - premissas: array de { presente:bool, desc:string } para cada premissa
+        - explicacao: texto clínico de explicacao_regra/2
+        - regras_secundarias: array de { id, certeza_pct, explicacao }
+
+    premissa_json/2 trata corretamente premissas negadas nao(S), marcando-as
+    com presente:false para que o frontend as exiba com o símbolo "✗".
+
+    Loop de Paragem
+
+    aguardar_parar/0 lê stdin da thread principal num loop bloqueante. Quando
+    o utilizador escreve q/quit/parar/stop/exit/sair, chama halt(0), terminando
+    todo o processo e libertando a porta 8080. O servidor HTTP corre nas suas
+    próprias threads de worker, completamente independentes deste loop.
+
+-----> index.html  [VISUALIZAÇÃO - INTERFACE WEB]
+
+Descrição Geral
+
+    Ficheiro HTML único com CSS e JavaScript inlined. Não tem dependências
+    externas além de duas fontes Google (IBM Plex Mono + DM Sans). Toda a
+    lógica de UI está em JavaScript puro, sem frameworks. O HTML é servido
+    diretamente pelo server.pl via http_reply_file/3.
+
+    Layout
+
+    A interface usa CSS Grid com duas colunas fixas:
+        Sidebar esquerda (280px): progresso da triagem, nível atual, scores live
+        Área principal (resto): feed de perguntas e resultados
+
+    A topbar fixa contém o logótipo, o status-pill animado (indica se o servidor
+    está activo) e o botão "Iniciar Triagem".
+
+    Componentes da Sidebar
+
+    Árvore de Progresso (#tree-wrap): cada sintoma perguntado aparece como
+    um item com três estados visuais - pending (ainda não perguntado), active
+    (pergunta atual) e done (respondido, com a resposta abreviada: SIM/NÃO/?).
+    Nível Atual (#sb-nivel-atual): card colorido que atualiza em tempo real
+    com o nível de maior score a cada resposta. A cor do card (vermelho,
+    laranja, amarelo, azul, verde) reflete a gravidade crescente do diagnóstico
+    provisório, criando feedback visual imediato.
+    Scores Live (#sb-scores): barras de progresso por nível com animação CSS
+    (transition width 0.5s) e a fórmula MYCIN inline numa formula-box, que
+    mostra ao utilizador como os dois CFs mais altos se combinam. Este componente
+    é puramente educativo/de rastreabilidade - não altera a lógica de inferência.
+
+    Feed Principal
+
+    O feed acumula cronologicamente os cards da triagem:
+
+    Card de Boas-Vindas: exibido antes de iniciar, explica o sistema e apresenta
+    os cinco níveis com os seus ícones e cores.
+    Card de Pergunta (.pergunta-card): exibe o texto do sintoma, a secção "Porquê
+    esta pergunta?" recolhível (explicacao do servidor) e três botões de resposta
+    (SIM / NÃO / Não sei). Ao clicar num botão, aparece um slider de certeza
+    (0-100%) com indicador numérico antes de submeter a resposta.
+    Card de Resultado (.result-card): exibido pelo mostrarResultado(d). Contém:
+        - Badge colorido com o nível recomendado
+        - Percentagem de confiança MYCIN
+        - Recomendação clínica
+        - Tabela de scores por nível com barras animadas
+        - Regra principal: ID, certeza, premissas (chips verde/vermelho) e
+          explicação clínica
+        - Regras secundárias (se existirem)
+        - Lista de sintomas confirmados com CF%
+
+    Fluxo JavaScript
+
+        iniciarTriagem()   → POST /api/start → renderiza primeira pergunta
+        responder(tipo)    → mostra slider → submeterResposta()
+        submeterResposta() → POST /api/answer → pergunta ou resultado
+        mostrarResultado() → renderiza resultado + aciona submeter()
+        submeter()         → POST /api/validate (automático em background)
+
+    Todas as chamadas à API usam fetch com async/await. Os erros de rede são
+    capturados e exibidos como mensagens de sistema no feed (sys-msg.err). O botão "Iniciar Triagem" é desativado durante pedidos em curso (setBusy).
+
+    Codificação de Cores por Nível
+
+    NIVEL_CORES mapeia cada nível a uma cor CSS hex:
+        emergencia          → #dc2626  (vermelho)
+        muito_urgente       → #ea580c  (laranja)
+        urgente             → #d97706  (âmbar)
+        pouco_urgente       → #2563eb  (azul)
+        sem_sintomas_alarme → #059669  (verde)
+
+    A mesma paleta é usada em CSS (variáveis --c-em, --c-mu, --c-ur, --c-pu,
+    --c-sa) e em JavaScript (NIVEL_CORES), garantindo consistência sem duplicar
+    valores.
+
+-----------------------------
+Descrição dos Processos
+-----------------------------
+
+-----> Arquitetura Global do Sistema
+
+    O sistema tem duas vias de execução partilhando o mesmo motor:
+
+        Via CLI (main.pl + interface.pl):
+            Utilizador → terminal → interface.pl → facto/2 →
+            sistema_inferencia.pl → resultado no terminal →
+            guardar_triagem.pl → triagens.csv → treinar_exportar.py →
+            base_conhecimento_b.pl → recarregado em memória
+
+        Via Web (server.pl + index.html):
+            Browser → HTTP POST → server.pl → facto/2 →
+            sistema_inferencia.pl → JSON → JavaScript → UI →
+            POST /api/validate → guardar_triagem.pl → triagens.csv
+            (retreino manual com retreinar. ou automático com main.pl)
+
+    Em ambas as vias, o motor de raciocínio (sistema_inferencia.pl) e as
+    bases de conhecimento (A e B) são idênticos. A separação entre transporte
+    (CLI ou HTTP) e lógica (Prolog) é completa.
+
+-----> Fluxo de Execução Completo (Via Web)
+
+    1. Arranque
+       O utilizador executa: swipl server.pl
+       O servidor carrega todos os módulos por ordem e inicia o HTTP na porta 8080.
+       O browser abre http://localhost:8080 e recebe index.html.
+    2. Início da Triagem
+       O utilizador clica "Iniciar Triagem". O browser envia POST /api/start.
+       O servidor chama limpar/0, obter_ordem_sintomas/1 e guarda a lista em
+       session_sintomas/1. Devolve a primeira pergunta como JSON.
+       A sidebar atualiza a árvore de progresso com todos os sintomas em pending.
+    3. Ciclo de Perguntas
+       Para cada resposta:
+           a) O browser envia POST /api/answer com sintoma, tipo e certeza.
+           b) O servidor converte (tipo, certeza) → CF via tipo_para_cf/3.
+           c) Regista asserta(facto(SA, CFInterno)).
+           d) Avança a lista session_sintomas/1 (remove a cabeça).
+           e) Calcula calcular_scores_finais/2 para todos os níveis.
+           f) Verifica limiar: se MaxCF >= 0.80 ou lista vazia → resultado.
+           Caso contrário → devolve próxima pergunta com scores atuais.
+       A sidebar atualiza scores live e o card de nível atual a cada resposta. A árvore de progresso marca o sintoma respondido como done.
+    4. Apresentação do Resultado
+       O servidor constrói o JSON de resultado via construir_resultado/2:
+           - Determina nível vencedor (score_maximo/3)
+           - Calcula justificação (construir_justificacao/2)
+           - Lista sintomas confirmados (facto(S, CF) com CF > 0)
+       O frontend renderiza o card de resultado com as barras animadas.
+    5. Gravação Automática e Online Learning
+       Ao contrário de versões anteriores onde o utilizador tinha de validar o diagnóstico, o frontend agora efetua uma chamada POST /api/validate automática e invisível mal o resultado é gerado.
+       O servidor chama guardar_triagem/1, que escreve a linha no CSV, agilizando a recolha de dados para o dataset de treino. 
+    6. Retreino (separado)
+       O retreino não é automático no modo web - é acionado manualmente com
+       o comando retreinar. na consola SWI-Prolog, ou executando
+       python3 treinar_exportar.py diretamente. O modelo retreinado é então
+       recarregado com recarregar_base_b/0 sem reiniciar o servidor.
+
+-----> A Integração Parte A + Parte B em Detalhe
+
+    O mecanismo de integração é elegante por ser completamente transparente:
+
+    1. Coexistência de Cláusulas
+       As diretivas :- multifile regra/4 em ambos os ficheiros informam o
+       Prolog que este predicado tem cláusulas em múltiplos ficheiros. Quando o motor executa findall(CF, avaliar_regra(_, N, CF), ListaCFs),
+       o findall itera sobre TODAS as cláusulas regra/4 carregadas - tanto
+       as r_XXX da Parte A como as dt_NNN da Parte B - sem necessitar de
+       qualquer lógica especial no motor.
+    2. Preferência pela Ordem ML
+       obter_ordem_sintomas/1 usa predicate_property(ordem_sintomas_ml(_), defined)
+       para verificar em tempo de execução se a Parte B está presente. Esta
+       abordagem é mais robusta do que verificar a existência do ficheiro em
+       disco - a verificação é feita sobre o estado atual da base de conhecimento
+       carregada em memória.
+    3. Fallback Defensivo na Justificação
+       Em mostrar_justificacao_final/1 e construir_justificacao/2, a chamada a
+       explicacao_regra/2 usa if-then-else com um fallback de texto genérico. Isto garante que mesmo que uma regra dt_NNN não tenha explicação associada
+       (por exemplo, por um bug no gerador), o sistema não falha - exibe um texto
+       genérico em vez de um erro.
+
+-----> O Pipeline de Aprendizagem Automática
+
+    O ciclo de vida do modelo ML é:
+
+        [primeira execução]
+        gerar_dataset.py → triagens.csv (dataset sintético a partir das regras A)
+                         ↓
+        treinar_exportar.py → base_conhecimento_b.pl (modelo inicial)
+
+        [triagens subsequentes]
+        Triagem concluída → guardar_triagem.pl → triagens.csv (linha nova)
+                         ↓
+        treinar_exportar.py → base_conhecimento_b.pl (modelo atualizado)
+                         ↓
+        recarregar_base_b/0 → modelo ativo em memória atualizado
+
+    Com o tempo, o dataset acumula exemplos de triagens reais (validadas pelo
+    utilizador), enriquecendo o modelo para além das regras sintéticas geradas
+    inicialmente. A Decision Tree pode descobrir padrões que os especialistas
+    não anteciparam explicitamente nas regras da Parte A.
+
+    A profundidade máxima da DT (DT_MAX_DEPTH=4) é um parâmetro crítico de
+    controlo: árvores mais profundas geram mais regras e mais específicas, mas
+    com risco de overfitting. Com apenas 366 exemplos no dataset inicial, a
+    profundidade 4 é conservadora e adequada.
+
+-----> O Que Mudou Face ao Sistema Terminal-Only (P1MAX)
+
+    ADIÇÃO DA PARTE B (ML):
+
+        O sistema P1MAX era puramente baseado em conhecimento manual. A Parte B
+        acrescenta uma capacidade de aprendizagem: o sistema melhora com o uso,
+        ajustando a ordem de questionamento e descobrindo novos padrões nos dados. As regras manuais continuam ativas e nunca são substituídas - a Parte B
+        apenas acrescenta evidência.
+    
+    SUBSTITUIÇÃO DO MODO CLI POR INTERFACE WEB:
+
+        A interface de terminal (interface.pl) foi complementada pelo servidor
+        HTTP (server.pl) e pela interface web (index.html). O motor MYCIN é
+        exatamente o mesmo - a diferença é o canal de comunicação. A interface
+        web oferece: feedback visual em tempo real (scores live, árvore de
+        progresso), apresentação gráfica dos resultados (barras animadas,
+        chips de premissas) e o mecanismo de validação para online learning.
+
+    ONLINE LEARNING AUTOMATIZADO:
+
+        O processo de gravação de dados foi uniformizado. 
+        Tal como no modo CLI onde a triagem é guardada automaticamente, no modo web a gravação em triagens.csv ocorre em background via API sem exigir um clique adicional de validação por parte do utilizador. 
+        Isto agiliza o preenchimento do dataset. 
+        
+    SERVIDOR HTTP COMO CAMADA DE TRANSPORTE:
+
+        A decisão de implementar o servidor em Prolog (em vez de um wrapper
+        Python/Node.js) tem uma consequência importante: o motor de inferência
+        corre no mesmo processo que o servidor, sem overhead de serialização
+        entre linguagens. A chamada a calcular_scores_finais/2 é direta. O
+        custo é a complexidade acrescida de gerir estado de sessão (session_sintomas/1)
+        num ambiente multithreaded com mutex explícito.
+
+-----> Nota sobre a Cobertura e Limitações do Sistema
+
+    A cobertura clínica do sistema baseia-se nas 30 regras manuais da Parte A,
+    calibradas para o protocolo SNS24. A Parte B acrescenta regras descobertas
+    automaticamente nos dados sintéticos gerados a partir dessas mesmas regras -
+    pelo que as novas regras são derivadas do mesmo conhecimento base, não de
+    dados clínicos reais independentes.
+    Para que a Parte B acrescente valor genuíno ao sistema, seria necessário
+    alimentar o dataset com triagens reais validadas por profissionais de saúde,
+    em quantidade suficiente para que os padrões aprendidos reflitam a realidade
+    clínica e não apenas as regras manuais codificadas.
+    O sistema não substitui avaliação médica. Em emergência real, ligar 112.
+    Em dúvida, contactar SNS24: 808 24 24 24.
+```[cite: 4]

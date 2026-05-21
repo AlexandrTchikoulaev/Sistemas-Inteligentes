@@ -1,0 +1,42 @@
+Objetivos
+
+    Explorar técnicas de Aquisição, Representação de Conhecimento e Inferência. Desenvolver
+    Sistemas Inteligentes para Suporte à Decisão (SISD)
+
+Enunciado
+
+    Projeto 1 (P1) – Suporte à decisão na Triagem do serviço SNS24
+
+        Parte A – Triagem de doentes (aquisição manual de conhecimento)
+        Pretende-se seja elaborado um SISD para encaminhar doentes a partir dos seus sintomas. Pode
+        ser considerado um subconjunto dos fluxos previstos na APP SNS24 ou Linha SNS24
+        (protocolos de triagem clínica de sintomas Altitude).
+        Requisitos mínimos:
+        O SISD terá de ser implementado na linguagem Prolog através da representação de
+        conhecimento baseado em regras de produção.
+        Deverá ser produzido (em ficheiros distintos ou identificar claramente por comentários): base de
+        conhecimento, sistema de inferência, base de dados e interface.
+        Requisitos Opcionais (P1MAX):
+        (50%) Sistema de inferência considerando incerteza; (50%), Sistema de inferência considerando
+        explicação.
+        Parte B: Suporte à decisão na Triagem de doentes no serviço SNS24 (aquisição
+        automática de conhecimento)
+        Com base no conhecimento adquirido na parte A, pretende-se que desenvolva uma base de
+        dados simples (obtida via sintetização de dados), com algumas dezenas de exemplos concretos
+        de triagens. Depois, deverão ser empregues técnicas automáticas para extrair regras a partir da
+        base de dados criada (aprendizagem automática). Por fim, essas regras deverão ser
+        implementadas na base de conhecimento do sistema desenvolvido em A.
+        Requisitos:
+        O SISD terá de ser implementado na linguagem Prolog via regras de produção geradas. As
+        regras devem ser geradas via uma aquisição de conhecimento automática (aprendizagem
+        automática).
+        Os métodos de aquisição automática podem ser obtidos via Prolog e/ou via ferramentas de Data
+        Mining (e.g. R, Python, Rapidminer, Weka). Podem ainda processar/preparar os dados com
+        quaisquer ferramentas, incluindo o MS Excel. O conhecimento extraído deverá ser implementado
+        em Prolog via regras de produção, por exemplo via esforço de codificação manual.
+
+    Projeto 2 (P2) – Suporte à decisão na Triagem de doentes no serviço SNS24 baseado em Chatbot / Agent e LLM
+        
+        Criar um ChatBot / Agent recorrendo a um Large Language Model (e.g. Ollama) para
+        implementar o SISD do projeto 1, fazendo o seu fine-tuning / RAG com os fluxogramas do
+        serviço SNS24: os protocolos de triagem clínica de sintomas Altitude (APP / Linha Telefónica).

@@ -1,0 +1,12 @@
+# Projeto 2 - Dependências Python
+# Instalar com: pip install -r requirements_p2.txt
+
+# Já instaladas na Parte B (não precisam de reinstalar)
+pandas
+scikit-learn
+
+# Novas (Parte 2)
+fastapi
+uvicorn[standard]
+httpx
+numpy
