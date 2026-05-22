@@ -30,6 +30,11 @@ sintoma(constipacao,      'Sintomas de constipacao (tosse ligeira, nariz entupid
 sintoma(dor_leve,         'Dor ligeira controlada com medicacao habitual').
 sintoma(febre_baixa,      'Febre baixa, abaixo de 38 graus Celsius').
 sintoma(mal_estar,        'Mal-estar geral sem sintomas especificos').
+sintoma(rigidez_nuca,          'Rigidez da nuca (nao consegue encostar o queixo ao peito)').
+sintoma(rash_petequial,        'Manchas vermelhas ou roxas na pele que nao desaparecem a pressao').
+sintoma(reacao_alergica_grave, 'Reacao alergica grave com inchaço da face, lingua ou garganta').
+sintoma(dor_cabeca_subita,     'Dor de cabeca muito intensa de inicio subito (pior da vida)').
+sintoma(visao_alterada,        'Alteracao subita da visao num ou ambos os olhos').
 
 % ----------------------------------------------------------------
 % NIVEIS DE TRIAGEM
@@ -76,8 +81,11 @@ regra(r_ur1, se([febre_bebe]),                              entao(urgente), 0.90
 regra(r_ur2, se([febre_alta, tosse_febre]),                 entao(urgente), 0.80).
 regra(r_ur3, se([vomitos, diarreia]),                       entao(urgente), 0.75).
 regra(r_ur4, se([febre_alta]),                              entao(urgente), 0.50).
-regra(r_ur5, se([dor_persiste]),                            entao(urgente), 0.40).
-regra(r_ur6, se([dor_garganta]),                            entao(urgente), 0.55).
+% dor_persiste sem constipacao: dor que nao cede a analgesicos precisa de reavaliacao medica
+% com constipacao: cefaleia/mialgia gripal nao resolvida => pouco_urgente (r_pu7)
+regra(r_ur5, se([dor_persiste, nao(constipacao)]),          entao(urgente), 0.40).
+% dor_garganta sem constipacao: suspeita de amigdalite bacteriana ou abscesso
+regra(r_ur6, se([dor_garganta, nao(constipacao)]),          entao(urgente), 0.55).
 % Bebe com febre + perda de liquidos por dupla via: risco critico de desidratacao.
 regra(r_ur7, se([febre_bebe, vomitos, diarreia]),           entao(muito_urgente), 0.88).
 regra(r_ur8, se([febre_alta, tosse_febre, dor_persiste]),   entao(urgente), 0.85).
@@ -93,16 +101,38 @@ regra(r_ur11, se([dor_garganta, febre_alta]),            entao(urgente),       0
 % Bebe com vomitos e sem diarreia: reservas do lactente esgotam-se rapidamente
 regra(r_ur12, se([febre_bebe, vomitos, nao(diarreia)]),  entao(muito_urgente), 0.80).
 
+% Alteracao subita da visao isolada: urgente (AVC, glaucoma agudo, oclusao retiniana)
+regra(r_ur14, se([visao_alterada]),                          entao(urgente),       0.60).
+
 % Confusao + febre alta sem dor abdominal: padrao de meningite ou encefalite (nao sepsis)
 regra(r_mu10, se([confusao, febre_alta, nao(dor_abd)]),  entao(muito_urgente), 0.85).
+% Reacao alergica grave sem dificuldade respiratoria: pode evoluir para anafilaxia
+regra(r_mu11, se([reacao_alergica_grave]),                   entao(muito_urgente), 0.80).
+% Hemorragia subaracnoideia: pior dor de cabeca da vida de inicio subito
+regra(r_mu12, se([dor_cabeca_subita]),                       entao(muito_urgente), 0.85).
+% BE-FAST completo: alteracao da visao + dificuldade na fala
+regra(r_mu13, se([visao_alterada, fala_dificil]),            entao(muito_urgente), 0.90).
 % Dificuldade respiratoria com febre alta: suspeita de pneumonia grave ou sepsis respiratoria
 regra(r_em8,  se([resp_dificuldade, febre_alta]),         entao(emergencia),    0.87).
+% Meningite bacteriana: febre alta + rigidez da nuca
+regra(r_em9,  se([febre_alta, rigidez_nuca]),               entao(emergencia),   0.92).
+% Meningococcemia: rash petequial com febre alta
+regra(r_em10, se([febre_alta, rash_petequial]),             entao(emergencia),   0.95).
+% Anafilaxia: dificuldade respiratoria com reacao alergica grave
+regra(r_em11, se([resp_dificuldade, reacao_alergica_grave]), entao(emergencia),  0.93).
 
 % POUCO URGENTE
 regra(r_pu1, se([constipacao]),           entao(pouco_urgente), 0.70).
 regra(r_pu2, se([dor_leve]),              entao(pouco_urgente), 0.65).
 regra(r_pu3, se([febre_baixa]),           entao(pouco_urgente), 0.60).
 regra(r_pu4, se([dor_leve, mal_estar]),   entao(pouco_urgente), 0.70).
+
+% Gripe tipica sem febre alta: quadro viral tratavel em casa
+regra(r_pu5, se([constipacao, dor_garganta, nao(febre_alta)]), entao(pouco_urgente), 0.72).
+% Febre baixa com mal-estar geral sem dor abdominal: viral autolimitado
+regra(r_pu6, se([febre_baixa, mal_estar, nao(dor_abd)]),       entao(pouco_urgente), 0.68).
+% Constipacao com dor que nao cede: cefaleia/mialgia gripal; nao requer urgencia
+regra(r_pu7, se([constipacao, dor_persiste, nao(febre_alta)]), entao(pouco_urgente), 0.65).
 
 % SEM ALARME
 regra(r_sa1, se([mal_estar]),                    entao(sem_sintomas_alarme), 0.55).
@@ -121,6 +151,9 @@ explicacao_regra(r_em4, 'Hemorragias activas podem levar a choque hipovolemico.'
 explicacao_regra(r_em5, 'Alteracao de consciencia profunda sugere lesao ou doenca grave.').
 explicacao_regra(r_em7, 'Convulsoes activas comprometem a via aerea, causam hipoxia e indicam emergencia neurologica. O protocolo SNS24 indica chamada imediata ao 112.').
 explicacao_regra(r_em6, 'Febre alta + confusao + dor abdominal e o triade classica de sepsis, infeccao disseminada com risco de falencia multiorganica imediata.').
+explicacao_regra(r_em9,  'Febre alta com rigidez da nuca e o sinal classico de meningite bacteriana, infeccao do sistema nervoso central com risco de vida imediato e sequelas graves.').
+explicacao_regra(r_em10, 'Rash petequial com febre e o sinal de alerta de meningococcemia, septicemia meningococica com progressao rapida para choque e falencia multiorganica em horas.').
+explicacao_regra(r_em11, 'Dificuldade respiratoria com reacao alergica grave indica anafilaxia, emergencia imunologica com risco de obstrucao total da via aerea que requer adrenalina e chamada ao 112.').
 
 % Muito urgente
 explicacao_regra(r_mu1, 'Dor no peito com irradiacao e o quadro classico de enfarte do miocardio.').
@@ -137,8 +170,8 @@ explicacao_regra(r_ur1, 'A febre em bebes menores de 3 meses e sempre um sinal d
 explicacao_regra(r_ur2, 'Febre alta combinada com tosse levanta a suspeita de pneumonia.').
 explicacao_regra(r_ur3, 'Vomitos e diarreia simultaneos acarretam um alto risco de desidratacao.').
 explicacao_regra(r_ur4, 'Febre alta persistente requer investigacao de foco infeccioso.').
-explicacao_regra(r_ur5, 'Dor que nao cede aos analgesicos precisa de reavaliacao medica.').
-explicacao_regra(r_ur6, 'Dificuldade em engolir acompanhada de dor pode indicar infeccao severa na garganta ou abscesso periamigdalino, com risco de compromisso da via aerea.').
+explicacao_regra(r_ur5, 'Dor moderada que nao cede a medicacao habitual, sem contexto de constipacao, precisa de reavaliacao medica para despiste de origem inflamatoria ou lesiva.').
+explicacao_regra(r_ur6, 'Dor de garganta sem contexto de constipacao pode indicar amigdalite bacteriana ou abscesso periamigdalino, com risco de compromisso da via aerea. Com constipacao, e quadro viral benigno (ver r_pu5).').
 explicacao_regra(r_ur7, 'Bebe febril com perda de liquidos por vomitos E diarreia enfrenta risco critico de desidratacao severa. As reservas de um lactente esgotam-se em horas. Este quadro justifica ida imediata a urgencia hospitalar.').
 explicacao_regra(r_ur8, 'Febre alta com tosse e dor que nao cede a analgesicos aponta para infeccao respiratoria profunda (ex: pneumonia bacteriana), que pode necessitar de antibioterapia urgente.').
 explicacao_regra(r_ur9, 'Dor abdominal sem vomitos nem diarreia afasta a gastroenterite como causa. A ausencia de sintomas gastrointestinais com dor intensa sugere origem cirurgica ou urologica (apendicite, colica renal ou colecistite) que requer avaliacao medica presencial urgente.').
@@ -146,7 +179,11 @@ explicacao_regra(r_ur10, 'Vomitos repetidos sem diarreia comprometem a hidrataca
 explicacao_regra(r_ur13, 'Diarreia grave ja implica, por definicao, sinais de desidratacao. Sem vomitos ha margem para hidratacao oral supervisionada, mas a vigilancia medica e necessaria.').
 explicacao_regra(r_ur11, 'Dor de garganta associada a febre alta levanta suspeita de amigdalite bacteriana por estreptococo, que pode exigir antibioterapia e avaliar o risco de abscesso.').
 explicacao_regra(r_ur12, 'Bebe febril com vomitos repetidos enfrenta risco elevado de desidratacao rapida. As reservas de um lactente esgotam-se em poucas horas, justificando avaliacao hospitalar urgente mesmo sem diarreia simultanea.').
+explicacao_regra(r_ur14, 'Alteracao subita da visao pode indicar AVC, oclusao da arteria central da retina, glaucoma agudo ou outras emergencias oftalmologicas com risco de cegueira permanente se nao tratadas a tempo.').
 explicacao_regra(r_mu10, 'Confusao mental associada a febre alta sem dor abdominal e o padrao clinico de meningite bacteriana ou encefalite viral. Estas infeccoes do sistema nervoso central sao emergencias neurologicas mesmo sem o quadro abdominal de sepsis.').
+explicacao_regra(r_mu11, 'Reacao alergica grave com inchaço da face ou garganta pode evoluir rapidamente para anafilaxia com compromisso da via aerea, pelo que requer avaliacao hospitalar imediata.').
+explicacao_regra(r_mu12, 'Dor de cabeca de inicio subito e muito intensa, descrita como a pior da vida, e o sinal classico de hemorragia subaracnoideia por rotura de aneurisma cerebral. Requer TAC cerebral urgente.').
+explicacao_regra(r_mu13, 'Alteracao da visao associada a dificuldade na fala completa o padrao BE-FAST de AVC, elevando significativamente a certeza diagnostica e justificando avaliacao hospitalar imediata.').
 explicacao_regra(r_em8, 'Dificuldade respiratoria grave com febre alta levanta a suspeita de pneumonia severa ou sepsis de foco pulmonar, ambas com risco de falencia respiratoria iminente e indicacao para avaliacao hospitalar imediata.').
 
 % Pouco urgente / sem alarme
@@ -154,6 +191,9 @@ explicacao_regra(r_pu1, 'Sintomas gripais ligeiros devem ser autotratados com re
 explicacao_regra(r_pu2, 'Dores ligeiras que cedem a medicacao nao requerem idas urgentes ao hospital.').
 explicacao_regra(r_pu3, 'Febres baixas sao normalmente autolimitadas e respondem a antipireticos em casa.').
 explicacao_regra(r_pu4, 'Mal-estar com dor ligeira e controlada consolida um quadro benigno, o medico de familia e o destino adequado, nao a urgencia hospitalar.').
+explicacao_regra(r_pu5,  'Constipacao com dor de garganta sem febre alta enquadra-se num quadro viral tipico, tratavel em casa com analgesicos e repouso. Nao justifica ida a urgencia.').
+explicacao_regra(r_pu6,  'Febre baixa com mal-estar geral sem dor abdominal e o quadro mais frequente de infeção viral autolimitada, sem necessidade de urgencia. Medicacao de venda livre e repouso sao suficientes.').
+explicacao_regra(r_pu7,  'Cefaleias e mialgias gripais que nao cedem ao paracetamol sao frequentes nas infecoes virais das vias respiratorias. No contexto de constipacao, nao sao indicacao de urgencia.').
 explicacao_regra(r_sa1, 'O mal-estar geral sem alarmes deve ser apenas vigiado em casa.').
 explicacao_regra(r_sa2, 'Constipacao com febre baixa e o quadro viral autolimitado mais tipico, medicacao de venda livre e habitualmente suficiente.').
 
@@ -183,6 +223,11 @@ explicacao(constipacao,      'Sintomas tipicos de constipacao ajudam a enquadrar
 explicacao(dor_leve,         'Dores de baixa intensidade e facilmente controlaveis geralmente nao indicam problemas com os seus orgaos vitais.').
 explicacao(febre_baixa,      'Temperaturas moderadas sao a resposta natural de defesa do corpo a pequenas agressoes virais ou inflamatorias.').
 explicacao(mal_estar,        'Sentir-se indisposto de forma vaga, sem sinais de alarme, ajuda-nos a confirmar a ausencia de quadros clinicos urgentes.').
+explicacao(rigidez_nuca,          'A rigidez da nuca e um sinal de irritacao meningea. Com febre alta, e o sinal classico de meningite bacteriana, uma emergencia neurologica com risco de vida imediato.').
+explicacao(rash_petequial,        'Manchas na pele que nao desaparecem a pressao com febre sao o sinal classico de meningococcemia, infeccao fulminante e potencialmente fatal em horas.').
+explicacao(reacao_alergica_grave, 'Inchaço da face, labios, lingua ou garganta apos exposicao a alergeno pode evoluir para anafilaxia, emergencia que requer adrenalina imediata e chamada ao 112.').
+explicacao(dor_cabeca_subita,     'Uma dor de cabeca de inicio subito descrita como a mais intensa de sempre levanta a suspeita de hemorragia subaracnoideia por rotura de aneurisma cerebral, que requer avaliacao de emergencia.').
+explicacao(visao_alterada,        'A perda ou alteracao subita da visao pode indicar AVC, oclusao da arteria central da retina ou outras causas vasculares graves que requerem avaliacao urgente.').
 explicacao(_, 'Este sintoma e avaliado no nosso modelo clinico para afastar condicoes potencialmente graves.').
 
 % ----------------------------------------------------------------
@@ -191,8 +236,10 @@ explicacao(_, 'Este sintoma e avaliado no nosso modelo clinico para afastar cond
 % ----------------------------------------------------------------
 ordem_sintomas([
     sem_respiracao, sem_pulso, resp_dificuldade, hemorragia, inconsciente,
-    convulsoes, dor_peito, dor_irradia, fala_dificil, fraqueza_lado,
-    febre_alta, confusao, dor_abd, febre_bebe,
+    convulsoes, reacao_alergica_grave,
+    dor_peito, dor_irradia, fala_dificil, fraqueza_lado,
+    visao_alterada, dor_cabeca_subita,
+    febre_alta, rigidez_nuca, rash_petequial, confusao, dor_abd, febre_bebe,
     tosse_febre, dor_persiste, vomitos, diarreia,
     dor_garganta, constipacao, dor_leve, febre_baixa, mal_estar
 ]).

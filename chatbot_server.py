@@ -150,9 +150,11 @@ def construir_conhecimento(path_a: str, path_b: str) -> list[str]:
         "emergencia":    ["sem_respiracao", "sem_pulso", "resp_dificuldade",
                           "hemorragia", "inconsciente", "convulsoes"],
         "muito_urgente": ["dor_peito", "dor_irradia", "fala_dificil",
-                          "fraqueza_lado", "confusao", "dor_abd"],
+                          "fraqueza_lado", "confusao", "dor_abd",
+                          "reacao_alergica_grave", "dor_cabeca_subita"],
         "urgente":       ["febre_alta", "febre_bebe", "tosse_febre", "dor_persiste",
-                          "vomitos", "diarreia", "dor_garganta"],
+                          "vomitos", "diarreia", "dor_garganta",
+                          "rigidez_nuca", "rash_petequial", "visao_alterada"],
         "pouco_urgente": ["constipacao", "dor_leve", "febre_baixa", "mal_estar"],
     }
     for grau, sints in sint_grau.items():
@@ -269,42 +271,72 @@ SINTOMAS_KEYWORDS: dict[str, list[str]] = {
                          "garganta inflamada", "amígdalas", "engolir dói"],
     "constipacao":      ["constipado", "nariz entupido", "tosse ligeira", "ranho",
                          "sintomas de constipação", "resfriado", "pingo no nariz",
-                         "nariz a pingar"],
+                         "nariz a pingar", "tenho tosse", "sinto tosse", "com tosse",
+                         "tosse seca", "tosse produtiva"],
     "dor_leve":         ["dor ligeira", "dor suave", "desconforto ligeiro", "dói um pouco",
                          "dor leve", "dor moderada", "dor de cabeça ligeira",
                          "dor de cabeça", "cefaleia"],
     "febre_baixa":      ["febre baixa", "temperatura ligeiramente elevada",
                          "febre de 37", "febre de 38", "37 graus", "37.5", "38 graus",
-                         "temperatura a subir um pouco"],
+                         "temperatura a subir um pouco",
+                         "febre mas não", "febre mas nao",
+                         "febre ligeira", "febre moderada", "alguma febre",
+                         "pouca febre", "um pouco de febre", "febre não alta",
+                         "febre nao alta", "febre não muito", "febre nao muito"],
     "mal_estar":        ["mal-estar", "mal estar", "indisposto", "não me sinto bem",
                          "cansado sem motivo", "indisposição geral", "sinto-me mal",
-                         "não estou bem", "sinto mal estar"],
+                         "não estou bem", "sinto mal estar", "mal disposto",
+                         "mal-disposto", "indisposta", "mal disposta",
+                         "sinto-me mal disposto", "meio indisposto"],
+    "rigidez_nuca":          ["rigidez da nuca", "nuca rígida", "pescoço rígido",
+                              "não dobra a nuca", "nuca dura", "pescoço não dobra",
+                              "não encosta o queixo ao peito", "nuca não dobra"],
+    "rash_petequial":        ["manchas na pele que não desaparecem", "manchas vermelhas que não saem",
+                              "manchas roxas na pele", "petéquias", "rash com febre",
+                              "manchas hemorrágicas", "teste do copo", "manchas que ficam",
+                              "manchas que não somem"],
+    "reacao_alergica_grave": ["reação alérgica grave", "alergia grave", "inchaço da face",
+                              "inchaço na língua", "inchaço na garganta", "lábios inchados",
+                              "anafilaxia", "choque anafilático", "garganta a inchar",
+                              "cara a inchar", "língua a inchar", "face inchada"],
+    "dor_cabeca_subita":     ["pior dor de cabeça da vida", "dor de cabeça repentina muito forte",
+                              "dor de cabeça muito intensa de repente", "dor de cabeça nunca igual",
+                              "dor de cabeça explosiva", "dor de cabeça como nunca senti",
+                              "dor de cabeça início súbito"],
+    "visao_alterada":        ["perda de visão", "não vejo bem de repente", "visão turva de repente",
+                              "visão dupla", "não consigo ver", "olho não vê", "visão a falhar",
+                              "manchas na visão", "visão alterada de repente"],
 }
 
 SINTOMAS_PT: dict[str, str] = {
-    "sem_respiracao":   "Paragem respiratória",
-    "sem_pulso":        "Paragem cardíaca",
-    "resp_dificuldade": "Dificuldade respiratória grave",
-    "hemorragia":       "Hemorragia abundante",
-    "inconsciente":     "Inconsciência",
-    "convulsoes":       "Convulsões",
-    "dor_peito":        "Dor no peito",
-    "dor_irradia":      "Dor com irradiação",
-    "fala_dificil":     "Dificuldade na fala",
-    "fraqueza_lado":    "Fraqueza num lado do corpo",
-    "confusao":         "Confusão mental",
-    "febre_alta":       "Febre alta (>39°C)",
-    "dor_abd":          "Dor abdominal intensa",
-    "febre_bebe":       "Febre em bebé (<3 meses)",
-    "tosse_febre":      "Tosse com febre",
-    "dor_persiste":     "Dor persistente sem alívio",
-    "vomitos":          "Vómitos repetidos",
-    "diarreia":         "Diarreia grave",
-    "dor_garganta":     "Dor de garganta",
-    "constipacao":      "Constipação",
-    "dor_leve":         "Dor ligeira",
-    "febre_baixa":      "Febre baixa (<38°C)",
-    "mal_estar":        "Mal-estar geral",
+    "sem_respiracao":        "Paragem respiratória",
+    "sem_pulso":             "Paragem cardíaca",
+    "resp_dificuldade":      "Dificuldade respiratória grave",
+    "hemorragia":            "Hemorragia abundante",
+    "inconsciente":          "Inconsciência",
+    "convulsoes":            "Convulsões",
+    "dor_peito":             "Dor no peito",
+    "dor_irradia":           "Dor com irradiação",
+    "fala_dificil":          "Dificuldade na fala",
+    "fraqueza_lado":         "Fraqueza num lado do corpo",
+    "confusao":              "Confusão mental",
+    "febre_alta":            "Febre alta (>39°C)",
+    "dor_abd":               "Dor abdominal intensa",
+    "febre_bebe":            "Febre em bebé (<3 meses)",
+    "tosse_febre":           "Tosse com febre",
+    "dor_persiste":          "Dor persistente sem alívio",
+    "vomitos":               "Vómitos repetidos",
+    "diarreia":              "Diarreia grave",
+    "dor_garganta":          "Dor de garganta",
+    "constipacao":           "Constipação",
+    "dor_leve":              "Dor ligeira",
+    "febre_baixa":           "Febre baixa (<38°C)",
+    "mal_estar":             "Mal-estar geral",
+    "rigidez_nuca":          "Rigidez da nuca",
+    "rash_petequial":        "Rash petequial (manchas na pele)",
+    "reacao_alergica_grave": "Reação alérgica grave / Anafilaxia",
+    "dor_cabeca_subita":     "Dor de cabeça súbita e intensa",
+    "visao_alterada":        "Alteração súbita da visão",
 }
 
 SINTOMAS_EMERGENCIA = {"sem_respiracao", "sem_pulso", "resp_dificuldade",
@@ -315,9 +347,11 @@ SINTOMAS_POR_NIVEL: dict[str, set] = {
     "emergencia":    {"sem_respiracao", "sem_pulso", "resp_dificuldade",
                       "hemorragia", "inconsciente", "convulsoes"},
     "muito_urgente": {"dor_peito", "dor_irradia", "fala_dificil",
-                      "fraqueza_lado", "confusao", "dor_abd"},
+                      "fraqueza_lado", "confusao", "dor_abd",
+                      "reacao_alergica_grave", "dor_cabeca_subita", "rash_petequial"},
     "urgente":       {"febre_alta", "febre_bebe", "tosse_febre",
-                      "dor_persiste", "vomitos", "diarreia", "dor_garganta"},
+                      "dor_persiste", "vomitos", "diarreia", "dor_garganta",
+                      "rigidez_nuca", "visao_alterada"},
     "pouco_urgente": {"constipacao", "dor_leve", "febre_baixa", "mal_estar"},
 }
 _ORDEM_NIVEIS = ["emergencia", "muito_urgente", "urgente", "pouco_urgente", "sem_alarme"]
@@ -327,11 +361,10 @@ EXCLUSOES_MUTUAS: list[tuple] = [
     ("febre_alta", "febre_baixa"),   # temperatura >39 exclui <38 e vice-versa
 ]
 
-# Dependências: se o pai é negado, o filho também é negado
-# (tosse_febre = tosse + febre; sem febre não pode ser tosse_febre)
-DEPENDENCIAS_NEGACAO: list[tuple] = [
-    ("febre_alta", "tosse_febre"),   # nao(febre_alta) → nao(tosse_febre)
-]
+# Dependências: se o pai é negado, o filho também é negado.
+# NOTA: febre_alta → tosse_febre foi REMOVIDO — tosse com febre baixa (37-38°C) é válido;
+# negar tosse_febre automaticamente impedia detectar constipação com subfebrícula.
+DEPENDENCIAS_NEGACAO: list[tuple] = []
 
 
 def nivel_por_sintomas(presentes: list) -> str:
@@ -374,36 +407,43 @@ def aplicar_exclusoes(sintomas: dict) -> None:
 
 
 DESCRICAO_PERGUNTA: dict[str, str] = {
-    "sem_pulso":        "A pessoa tem pulso? Consegue sentir o coração a bater?",
-    "hemorragia":       "Há sangramento abundante, difícil de controlar?",
-    "sem_respiracao":   "A pessoa está a respirar normalmente?",
-    "resp_dificuldade": "Sente falta de ar ou dificuldade a respirar?",
-    "convulsoes":       "Teve convulsões ou tremores involuntários?",
-    "inconsciente":     "Está consciente e a responder?",
-    "confusao":         "Nota confusão mental ou desorientação?",
-    "fala_dificil":     "Tem dificuldade em falar ou a fala está arrastada?",
-    "fraqueza_lado":    "Sente fraqueza num lado do corpo ou boca ao lado?",
-    "dor_peito":        "Tem dor ou aperto no peito?",
-    "dor_irradia":      "A dor irradia para o braço, mandíbula ou costas?",
-    "dor_abd":          "Tem dor abdominal intensa?",
-    "febre_alta":       "Tem febre alta, acima de 39 graus?",
-    "febre_bebe":       "É um bebé com menos de 3 meses com febre?",
-    "tosse_febre":      "Tem tosse acompanhada de febre?",
-    "dor_persiste":     "Tem alguma dor que não cede à medicação habitual?",
-    "diarreia":         "Tem diarreia grave ou sinais de desidratação?",
-    "dor_garganta":     "Tem dor de garganta com dificuldade em engolir?",
-    "vomitos":          "Tem vómitos repetidos que impedem de beber líquidos?",
-    "dor_leve":         "Tem alguma dor, mesmo que ligeira?",
-    "febre_baixa":      "Tem febre baixa, entre 37 e 38 graus?",
-    "constipacao":      "Tem sintomas de constipação, como nariz entupido ou tosse ligeira?",
-    "mal_estar":        "Sente mal-estar geral ou indisposição?",
+    "sem_pulso":             "A pessoa tem pulso? Consegue sentir o coração a bater?",
+    "hemorragia":            "Há sangramento abundante, difícil de controlar?",
+    "sem_respiracao":        "A pessoa está a respirar normalmente?",
+    "resp_dificuldade":      "Sente falta de ar ou dificuldade a respirar?",
+    "convulsoes":            "Teve convulsões ou tremores involuntários?",
+    "inconsciente":          "Está consciente e a responder?",
+    "confusao":              "Nota confusão mental ou desorientação?",
+    "fala_dificil":          "Tem dificuldade em falar ou a fala está arrastada?",
+    "fraqueza_lado":         "Sente fraqueza num lado do corpo ou boca ao lado?",
+    "dor_peito":             "Tem dor ou aperto no peito?",
+    "dor_irradia":           "A dor irradia para o braço, mandíbula ou costas?",
+    "dor_abd":               "Tem dor abdominal intensa?",
+    "febre_alta":            "Tem febre alta, acima de 39 graus?",
+    "febre_bebe":            "É um bebé com menos de 3 meses com febre?",
+    "tosse_febre":           "Tem tosse acompanhada de febre?",
+    "dor_persiste":          "Tem alguma dor que não cede à medicação habitual?",
+    "diarreia":              "Tem diarreia grave ou sinais de desidratação?",
+    "dor_garganta":          "Tem dor de garganta com dificuldade em engolir?",
+    "vomitos":               "Tem vómitos repetidos que impedem de beber líquidos?",
+    "dor_leve":              "Tem alguma dor, mesmo que ligeira?",
+    "febre_baixa":           "Tem febre baixa, entre 37 e 38 graus?",
+    "constipacao":           "Tem sintomas de constipação, como nariz entupido ou tosse ligeira?",
+    "mal_estar":             "Sente mal-estar geral ou indisposição?",
+    "rigidez_nuca":          "Consegue encostar o queixo ao peito sem dificuldade, ou sente a nuca rígida?",
+    "rash_petequial":        "Tem manchas vermelhas ou roxas na pele que não desaparecem quando se pressiona com um dedo?",
+    "reacao_alergica_grave": "Teve alguma reação alérgica com inchaço da face, língua ou garganta?",
+    "dor_cabeca_subita":     "Tem dor de cabeça muito intensa de início súbito, diferente de tudo o que já sentiu?",
+    "visao_alterada":        "Tem alguma alteração súbita na visão, como visão turva, dupla ou perda de visão?",
 }
 
 ORDEM_PROLOG = [
     "sem_pulso", "hemorragia", "sem_respiracao", "resp_dificuldade",
-    "convulsoes", "inconsciente", "confusao", "fala_dificil",
-    "fraqueza_lado", "dor_peito", "dor_irradia", "dor_abd",
-    "febre_alta", "febre_bebe", "tosse_febre", "dor_persiste",
+    "reacao_alergica_grave", "convulsoes", "inconsciente", "confusao",
+    "fala_dificil", "fraqueza_lado", "visao_alterada",
+    "dor_peito", "dor_irradia", "dor_cabeca_subita", "dor_abd",
+    "febre_alta", "rigidez_nuca", "rash_petequial",
+    "febre_bebe", "tosse_febre", "dor_persiste",
     "diarreia", "dor_garganta", "vomitos", "dor_leve",
     "febre_baixa", "constipacao", "mal_estar",
 ]
@@ -416,9 +456,9 @@ def e_resposta_simples(text: str) -> Optional[bool]:
     # Normalizar vírgulas/ponto-e-vírgula → espaço (ex: "sim, a dor..." → "sim a dor...")
     t = re.sub(r"[,;]", " ", t)
     t = re.sub(r"\s+", " ", t).strip()
-    SIM = {"sim", "s", "é", "e", "tenho", "sinto", "sinto-me", "yes", "claro",
-           "também", "tambem", "efetivamente", "efectivamente", "pois", "exactamente",
-           "exatamente", "afirmativo", "com certeza", "certamente"}
+    SIM = {"sim", "s", "é", "e", "tenho", "sinto", "sinto-me", "yes", "yep", "yha",
+           "ya", "yeah", "claro", "também", "tambem", "efetivamente", "efectivamente",
+           "pois", "exactamente", "exatamente", "afirmativo", "com certeza", "certamente"}
     NAO = {"não", "nao", "n", "no", "nunca", "nem", "negativo",
            "não tenho", "nao tenho", "não sinto", "nao sinto",
            "não tive", "nao tive", "sem"}
@@ -426,12 +466,23 @@ def e_resposta_simples(text: str) -> Optional[bool]:
         return True
     if t in NAO:
         return False
+    # Qualificadores que invalidam uma resposta aparentemente positiva:
+    # 1. Negação após conjunção adversativa ("tenho febre mas não acima de 39")
+    # 2. Frequência intermitente ("sinto tonto de vez em quando") → incerteza
+    _INVALIDA_SIM = {
+        "mas não", "mas nao", "não acho", "nao acho", "mas não é", "mas nao e",
+        "mas não tenho", "mas nao tenho", "não creio", "nao creio",
+        "de vez em quando", "às vezes", "as vezes", "por vezes",
+        "algumas vezes", "raramente", "ocasionalmente",
+    }
     # Começa por palavra clara (com ou sem vírgula a seguir)
     for w in ["sim ", "claro ", "tenho ", "sinto ", "também ", "tambem "]:
         if t.startswith(w):
+            if any(q in t for q in _INVALIDA_SIM):
+                return None   # resposta qualificada — tratar como incerta
             return True
     for w in ["não ", "nao ", "nunca "]:
-        if t.startswith(w) and len(t) < 35:
+        if t.startswith(w) and len(t) < 55:
             return False
     return None
 
@@ -441,6 +492,9 @@ _INCERTO_PALAVRAS = {
     "mais ou menos", "possivelmente", "não tenho a certeza", "nao tenho a certeza",
     "incerto", "incerta", "pode ser", "acho que sim", "acho que não", "acho que nao",
     "não tenho certeza", "nao tenho certeza", "não tenho a certeza",
+    # Frequência intermitente: sintoma presente "às vezes" não é confirmação clínica
+    "de vez em quando", "às vezes", "as vezes", "por vezes",
+    "algumas vezes", "raramente", "ocasionalmente", "de tempos em tempos",
 }
 
 def e_resposta_incerta(text: str) -> bool:
@@ -616,6 +670,58 @@ async def extrair_sintomas_llm(text: str) -> dict:
             return detectar_sintomas_keywords(text)
 
 
+# ── MOTOR MYCIN PYTHON (fallback sem servidor Prolog) ────────────────────────
+
+def _combinar_cf(cf1: float, cf2: float) -> float:
+    """Fórmula MYCIN para combinar dois factores de certeza positivos."""
+    return cf1 + cf2 * (1.0 - cf1)
+
+
+def triagem_mycin_python(sintomas_presentes: list[str]) -> dict:
+    """Motor MYCIN implementado em Python.
+    Avalia todas as regras da base de conhecimento, combina os CFs com a fórmula
+    MYCIN padrão e devolve o nível mais grave que disparou com a confiança real."""
+    presentes = set(sintomas_presentes)
+    cfs_por_nivel: dict[str, float] = {}
+
+    for regra in REGRAS_TODAS:
+        ok = True
+        for p in regra["premissas"]:
+            m_neg = re.match(r"nao\((\w+)\)", p)
+            if m_neg:
+                if m_neg.group(1) in presentes:
+                    ok = False; break
+            else:
+                if p not in presentes:
+                    ok = False; break
+        if ok:
+            n = regra["nivel"]
+            cfs_por_nivel[n] = (
+                _combinar_cf(cfs_por_nivel[n], regra["cf"])
+                if n in cfs_por_nivel else regra["cf"]
+            )
+
+    if not cfs_por_nivel:
+        # Nenhuma regra disparou — usar mapeamento individual
+        nivel = nivel_por_sintomas(sintomas_presentes)
+        nome, rec = NIVEIS_INFO.get(nivel, (nivel, "Consulte um médico."))
+        return {"type": "resultado", "nivel": nome, "nivel_id": nivel,
+                "recomendacao": rec, "confianca_pct": 50, "python_mycin": True}
+
+    # Seleccionar o nível mais grave que disparou
+    nivel_vencedor = next(n for n in _ORDEM_NIVEIS if n in cfs_por_nivel)
+    cf_final = round(min(cfs_por_nivel[nivel_vencedor], 0.99) * 100)
+    nome, rec = NIVEIS_INFO.get(nivel_vencedor, (nivel_vencedor, "Consulte um médico."))
+    return {
+        "type":          "resultado",
+        "nivel":         nome,
+        "nivel_id":      nivel_vencedor,
+        "recomendacao":  rec,
+        "confianca_pct": cf_final,
+        "python_mycin":  True,
+    }
+
+
 # ── INTEGRAÇÃO PROLOG ────────────────────────────────────────────────────────
 async def triagem_mycin(sintomas_presentes: list[str]) -> dict:
     async with httpx.AsyncClient(timeout=40.0) as client:
@@ -736,9 +842,14 @@ async def gerar_resposta(session: dict, user_msg: str, resultado_prolog: Optiona
         # Limpar: remover perguntas e conteúdo proibido
         ack = re.sub(r"\?.*", "", ack).strip()
         ack = re.sub(r"(?i)(112|urgên|emergên|imediatamente|ligue|grave|sério|diagnóst).*", "", ack).strip()
-        # Corrigir pronomes e formas verbais erradas do LLM
+        # Corrigir pronomes e formas verbais "tu" do LLM (deve usar "si"/"você")
         ack = re.sub(r"\bvocê\b", "si", ack, flags=re.IGNORECASE)
-        ack = re.sub(r"\btens\b", "tem", ack)   # forma "tu" → "si/você"
+        ack = re.sub(r"\bestás\b", "está", ack)
+        ack = re.sub(r"\btens\b", "tem", ack)
+        ack = re.sub(r"\bpodes\b", "pode", ack)
+        ack = re.sub(r"\bsabes\b", "sabe", ack)
+        ack = re.sub(r"\bqueres\b", "quer", ack)
+        ack = re.sub(r"\b(para|de) te\b", lambda m: m.group(1) + " si", ack)
         # Verificar se o LLM antecipou o próximo sintoma (alucinação clínica).
         # Usa as keywords canónicas do sintoma (min 4 chars) para detetar conjugações
         # e variações que o threshold de 6 chars na SINTOMAS_PT/DESCRICAO_PERGUNTA falharia
@@ -891,6 +1002,12 @@ async def chat_message(body: MsgBody):
     for s in kw["ausentes"]:
         if s not in session["sintomas"]:
             session["sintomas"][s] = "nao"
+        elif s == ultima_perg and session["sintomas"].get(s) == "sim" and resp_simples is True:
+            # Override: keyword nega explicitamente o mesmo sintoma que a resposta
+            # simples confirmou — ex: "tenho febre mas não acima de 39 graus"
+            # → e_resposta_simples viu "tenho" → sim; keyword viu "não...acima de 39" → ausente
+            # A keyword é mais específica: prevalece.
+            session["sintomas"][s] = "nao"
 
     # 2b. Aplicar exclusões mútuas (ex: febre_alta exclui febre_baixa)
     aplicar_exclusoes(session["sintomas"])
@@ -904,7 +1021,8 @@ async def chat_message(body: MsgBody):
     n_known       = sum(1 for v in session["sintomas"].values() if v in ("sim", "nao"))
     # Sintomas que justificam triagem antecipada
     SINTOMAS_URGENTES = {"febre_alta", "febre_bebe", "dor_peito", "dor_abd",
-                         "fala_dificil", "fraqueza_lado", "confusao", "dor_persiste"}
+                         "fala_dificil", "fraqueza_lado", "confusao", "dor_persiste",
+                         "reacao_alergica_grave", "dor_cabeca_subita", "rigidez_nuca"}
     has_urgente = any(session["sintomas"].get(s) == "sim" for s in SINTOMAS_URGENTES)
     # Urgentes: bloquear triagem se uma regra de emergência ainda tem premissas desconhecidas
     # (ex: febre_alta+dor_abd confirmados → r_em6 precisa de confusao antes de concluir)
@@ -929,38 +1047,30 @@ async def chat_message(body: MsgBody):
         nivel_mycin    = resultado_mycin.get("nivel", "")
         nivel_esperado = nivel_por_sintomas(presentes)
 
-        # Fallback: MYCIN falhou (servidor Prolog não disponível) ou resultado inválido
+        # Fallback: servidor Prolog não disponível — usar motor MYCIN Python
         if resultado_mycin.get("type") != "resultado":
-            nome, rec = NIVEIS_INFO.get(nivel_esperado, (nivel_esperado, "Consulte um médico."))
-            resultado_prolog = {
-                "type":          "resultado",
-                "nivel":         nome,
-                "nivel_id":      nivel_esperado,
-                "recomendacao":  rec,
-                "confianca_pct": 65,
-                "fallback":      True,
-            }
-        # Validar: MYCIN não pode ser mais grave do que os sintomas justificam
+            resultado_prolog = triagem_mycin_python(presentes)
+        # Validar: Prolog não pode elevar para emergência sem justificação pelos sintomas
         elif nivel_mycin == "emergencia" and nivel_esperado not in ("emergencia",):
-            nome, rec = NIVEIS_INFO.get(nivel_esperado, (nivel_esperado, "Consulte um médico."))
-            resultado_prolog = {
-                "type":          "resultado",
-                "nivel":         nome,
-                "nivel_id":      nivel_esperado,
-                "recomendacao":  rec,
-                "confianca_pct": 70,
-                "fallback":      True,
-            }
+            resultado_prolog = triagem_mycin_python(presentes)
         else:
-            # Garantir que o resultado do Prolog tem sempre nivel_id (pode vir como ID
-            # "muito_urgente" ou como nome display "MUITO URGENTE" — normalizar ambos)
+            # Garantir nivel_id (Prolog pode devolver ID "muito_urgente" ou display "MUITO URGENTE")
             if "nivel_id" not in resultado_mycin:
                 raw = nivel_mycin.upper()
                 resultado_mycin["nivel_id"] = (
                     nivel_mycin if nivel_mycin in NIVEIS_INFO
                     else _NIVEL_NOME_PARA_ID.get(raw, nivel_mycin)
                 )
-            resultado_prolog = resultado_mycin
+            # Piso de segurança clínica: o Prolog usa score_maximo (CF mais alto),
+            # não o nível mais grave. Se o Python MYCIN (severity-first) devolver
+            # um nível mais grave, prevalece — ex: vomitos(r_ur10, CF=0.60) não
+            # pode perder para dor_leve(r_pu2, CF=0.65).
+            resultado_python = triagem_mycin_python(presentes)
+            nid_prolog  = resultado_mycin.get("nivel_id", "sem_alarme")
+            nid_python  = resultado_python.get("nivel_id", "sem_alarme")
+            idx_prolog  = _ORDEM_NIVEIS.index(nid_prolog)  if nid_prolog  in _ORDEM_NIVEIS else len(_ORDEM_NIVEIS)
+            idx_python  = _ORDEM_NIVEIS.index(nid_python)  if nid_python  in _ORDEM_NIVEIS else len(_ORDEM_NIVEIS)
+            resultado_prolog = resultado_python if idx_python < idx_prolog else resultado_mycin
 
         session["resultado_prolog"] = resultado_prolog
 

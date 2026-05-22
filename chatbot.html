@@ -555,8 +555,8 @@ function mostrarResultado(res) {
   }
   const nid = res.nivel_id && NIVEL_CORES[res.nivel_id] ? res.nivel_id : null;
   const c   = nid ? NIVEL_CORES[nid] : {cor:'#6b7280', bg:'#f9fafb', label: res.nivel || '—'};
-  const cfLabel = res.fallback
-    ? `${res.confianca_pct || 0}% <span style="font-weight:400;font-size:11px">(estimativa — Prolog indisponível)</span>`
+  const cfLabel = res.python_mycin
+    ? `${res.confianca_pct || 0}% <span style="font-weight:400;font-size:11px">(motor Python — Prolog indisponível)</span>`
     : `${res.confianca_pct || 0}%`;
   el.innerHTML = `
     <div class="res-card" style="border-color:${c.cor};background:${c.bg}">
