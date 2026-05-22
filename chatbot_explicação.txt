@@ -1,0 +1,249 @@
+================================================================================
+  SNS24 CHATBOT — EXPLICAÇÃO COMPLETA DO FUNCIONAMENTO
+================================================================================
+
+
+ARQUITECTURA GERAL
+==================
+
+O sistema tem 3 servidores a correr em simultâneo:
+
+  Servidor                      Porta   Função
+  ----------------------------  ------  -----------------------------------------
+  chatbot_server.py (FastAPI)   8081    Orquestrador — recebe msgs, raciocina, responde
+  Servidor Prolog (MYCIN)       8080    Motor de inferência clínica
+  Ollama (llama3.2:3b)          11434   LLM local — só para texto empático
+
+
+================================================================================
+COMO FUNCIONA UMA CONVERSA (PASSO A PASSO)
+================================================================================
+
+1. ARRANQUE (/api/chat/start)
+------------------------------
+- Cria uma sessão com UUID único.
+- Estado inicial: sintomas={}, history=[], triagem_feita=False, n_trocas=0.
+- Devolve mensagem de boas-vindas ao utilizador.
+
+
+2. CADA MENSAGEM DO UTILIZADOR (/api/chat/message)
+----------------------------------------------------
+O servidor executa 5 passos em sequência:
+
+
+  PASSO 1 — Mapear resposta sim/não
+  ----------------------------------
+  Se a última mensagem do bot foi uma pergunta sobre um sintoma específico
+  (guardado em "ultima_pergunta"), e o utilizador respondeu com algo como
+  "sim", "tenho", "não", "nunca" — o sintoma é registado directamente, sem
+  usar o LLM.
+
+  Também trata respostas incertas ("talvez", "não sei") — não regista o
+  sintoma mas marca-o como "já perguntado" para não repetir a questão.
+
+
+  PASSO 2 — Detecção de sintomas por keywords
+  ---------------------------------------------
+  Percorre o dicionário SINTOMAS_KEYWORDS (23 sintomas × ~6-10 expressões
+  cada) e procura correspondências no texto do utilizador. Verifica o
+  contexto antes da palavra para detectar negações:
+    ex: "não tenho dor de peito" → dor_peito = nao
+
+  O LLM NÃO é usado aqui — foi desactivado porque o llama3.2:3b produzia
+  alucinações na extracção estruturada de sintomas.
+
+
+  PASSO 3 — Calcular próxima pergunta (motor de scoring)
+  -------------------------------------------------------
+  A função calcular_proximo_sintoma() avalia TODAS as regras da base de
+  conhecimento e escolhe qual sintoma perguntar a seguir.
+
+  Algoritmo de scoring:
+    - Para cada regra activa (não eliminada):
+        score = CF × 2^n_confirmadas
+    - Se ainda não há sintomas confirmados, qualquer regra nova tem peso normal.
+    - Se já há sintomas confirmados, regras sem evidências têm peso
+      reduzido a 0.2× — isto evita que "febre_alta" (que aparece em 8
+      regras) ganhe sempre sobre "dor_irradia" (1 regra mas com
+      "dor_peito" já confirmado).
+    - Sintomas já perguntados são excluídos da pontuação (set
+      "perguntas_feitas").
+
+
+  PASSO 4 — Decidir se é hora de fazer triagem MYCIN
+  ----------------------------------------------------
+  Condições que disparam a triagem:
+    a) Emergência detectada (qualquer sintoma de SINTOMAS_EMERGENCIA)
+       → triagem imediata
+    b) Sintoma urgente confirmado + ≥3 sintomas conhecidos + ≥2 trocas
+    c) Motor sem mais perguntas + ≥2 sintomas conhecidos + ≥2 trocas
+    d) ≥4 trocas + ≥3 sintomas conhecidos
+
+
+  PASSO 5 — Gerar resposta via LLM (Ollama)
+  ------------------------------------------
+  O LLM é usado APENAS para texto empático:
+    - Acknowledgment antes de cada pergunta:
+        "Entendido, obrigado por partilhar. Para continuar: [pergunta]"
+    - Frase de introdução no resultado final:
+        "Obrigado pela sua colaboração."
+
+  O LLM NÃO decide nem diagnostica — só escreve texto humano contextual.
+
+
+3. TRIAGEM MYCIN
+-----------------
+Quando é hora de triagem, o servidor:
+  1. Envia os sintomas confirmados para o servidor Prolog (porta 8080).
+  2. O Prolog aplica as regras com factores de certeza (CF) e devolve
+     nível + confiança.
+  3. O servidor Python valida o resultado: se o MYCIN diz "emergência"
+     mas os sintomas não a justificam → override com nível calculado
+     localmente.
+  4. Fallback se Prolog não estiver disponível: usa nivel_por_sintomas()
+     (tabela local por nível).
+
+
+================================================================================
+RAG ENGINE
+================================================================================
+
+Constrói automaticamente documentos em linguagem natural a partir dos
+ficheiros .pl no arranque do servidor:
+
+  - TF-IDF com char n-grams (2-4) — tolera erros ortográficos e variações
+  - 8000 features máximo
+  - Devolve top-5 documentos mais relevantes por cosine similarity > 0.01
+  - Usado apenas no fallback quando o motor de regras esgota perguntas
+
+
+================================================================================
+ALTERAÇÕES FEITAS NA base_conhecimento_a.pl
+================================================================================
+
+Foram adicionadas 6 novas regras com as respectivas explicações:
+
+
+NOVAS REGRAS URGENTES (nível URGENTE)
+--------------------------------------
+
+  r_ur10  |  vomitos sem diarreia              | CF 0.60
+    Desidratação por via gástrica isolada; pode exigir reposição
+    intravenosa. Vómitos repetidos sem diarreia comprometem a hidratação.
+
+  r_ur13  |  diarreia sem vomitos              | CF 0.55
+    Diarreia grave já implica desidratação por definição. Sem vómitos há
+    margem para hidratação oral supervisionada, mas vigilância necessária.
+
+  r_ur11  |  dor_garganta + febre_alta         | CF 0.75
+    Suspeita de amigdalite bacteriana por estreptococo. Pode exigir
+    antibioterapia e avaliação do risco de abscesso.
+
+
+NOVA REGRA MUITO URGENTE (nível MUITO URGENTE)
+-----------------------------------------------
+
+  r_ur12  |  febre_bebe + vomitos, sem diarreia  | CF 0.80
+    Bebé febril com vómitos repetidos. As reservas de um lactente
+    esgotam-se em poucas horas, justificando avaliação hospitalar urgente
+    mesmo sem diarreia simultânea.
+
+  r_mu10  |  confusao + febre_alta, sem dor_abd  | CF 0.85
+    Padrão de meningite bacteriana ou encefalite viral. Distingue-se de
+    r_em6 (sépsis) pela AUSÊNCIA de dor abdominal. Com dor_abd aplica-se
+    r_em6 (emergência); sem dor_abd aplica-se r_mu10 (muito urgente).
+
+
+NOVA REGRA DE EMERGÊNCIA
+-------------------------
+
+  r_em8   |  resp_dificuldade + febre_alta     | CF 0.87
+    Pneumonia severa ou sépsis de foco pulmonar. Risco de falência
+    respiratória iminente e indicação para avaliação hospitalar imediata.
+
+
+NOTA SOBRE A DISTINÇÃO r_em6 vs r_mu10
+----------------------------------------
+Este é o exemplo mais sofisticado da base de conhecimento:
+
+  r_em6  = febre_alta + confusao + dor_abd     → EMERGÊNCIA  (sépsis)
+  r_mu10 = confusao + febre_alta + nao(dor_abd) → MUITO URGENTE (meningite/encefalite)
+
+A negação nao(dor_abd) serve exactamente para separar dois quadros clínicos
+distintos que partilham dois sintomas — a presença ou ausência de dor
+abdominal é o factor discriminante entre sépsis e meningite.
+
+
+================================================================================
+ALTERAÇÕES FEITAS NO chatbot_server.py
+================================================================================
+
+1. LLM DESACTIVADO PARA EXTRACÇÃO DE SINTOMAS
+   A função extrair_sintomas_llm() existe mas não é chamada. Apenas
+   detectar_sintomas_keywords() é usada. Motivo: o llama3.2:3b produzia
+   alucinações na extracção estruturada.
+
+2. NOVA FUNÇÃO e_resposta_incerta()
+   Detecta expressões como "talvez", "não sei", "pode ser", "mais ou menos".
+   Quando detectada, não regista o sintoma mas marca-o como "já perguntado"
+   para evitar re-perguntar a mesma questão.
+
+3. SCORING EXPONENCIAL EM calcular_proximo_sintoma()
+   Passou de:  CF × (1 + n_confirmadas)
+   Para:       CF × 2^n_confirmadas
+   Com penalização 0.2× para regras sem evidências. Melhora muito a
+   sequência de perguntas, priorizando "completar uma regra em curso"
+   sobre "abrir uma regra nova sem evidências".
+
+4. SET perguntas_feitas
+   Rastreia sintomas já perguntados. Passado ao motor de scoring para
+   excluir esses sintomas da pontuação e evitar repetições.
+
+5. ACK CONTEXTUAL NO LLM
+   O prompt do LLM para o acknowledgment passou a incluir contexto específico:
+     - "confirmou 'Dor no peito'"
+     - "disse que não tem 'Febre alta'"
+     - "não tem certeza sobre 'Confusão mental'"
+   Em vez de apenas passar a mensagem crua do utilizador.
+
+6. INTRO EMPÁTICA NO RESULTADO FINAL
+   Antes do resultado, o LLM gera agora uma frase curta de conclusão
+   (ex: "Obrigado pela sua colaboração."), filtrada para não vazar o nível
+   de triagem ou recomendações.
+
+7. KEYWORDS EXPANDIDAS
+   dor_peito: adicionadas "dor forte no peito", "dor intensa no peito",
+              "dor de peito", "dores no peito", "peito dói", "peito doer"
+   febre_alta: adicionadas "acima de 39", "mais de 39", "39.5", "40.5"
+
+8. TOLERÂNCIA EM e_resposta_simples()
+   - Normalização de vírgulas antes da análise
+     (ex: "sim, a dor..." é agora reconhecido como "sim")
+   - Threshold de comprimento para respostas negativas aumentado de 25
+     para 35 caracteres.
+
+
+================================================================================
+FLUXO RESUMIDO DE UMA TRIAGEM TÍPICA
+================================================================================
+
+  Utilizador: "tenho dor no peito"
+      → keywords detectam dor_peito=sim
+      → scoring: dor_irradia tem prioridade (completa r_mu1 com dor_peito)
+
+  Bot: "A dor irradia para o braço, mandíbula ou costas?"
+
+  Utilizador: "sim"
+      → resp_simples=True → dor_irradia=sim
+      → deve_triagem: has_urgente=True, n_known=2, n_trocas=2 ✓
+
+  MYCIN: dor_peito + dor_irradia → r_mu1 (CF 0.90) → MUITO URGENTE
+
+  Bot: "Obrigado pela sua colaboração.
+
+       Com base nos sintomas que descreveu (Dor no peito, Dor com
+       irradiação), a triagem está concluída.
+
+       Nível: MUITO URGENTE (confiança: 90%)
+
+       Recomendação: Dirija-se à urgência hospitalar agora"

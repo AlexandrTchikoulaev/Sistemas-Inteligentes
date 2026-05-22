@@ -5,8 +5,9 @@ RAG: construído automaticamente a partir de base_conhecimento_a.pl + base_conhe
 
 Iniciar: python chatbot_server.py
 """
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import httpx
 import json
@@ -179,6 +180,8 @@ CONHECIMENTO  = construir_conhecimento(KB_A, KB_B)
 _kb_texto     = _ler(KB_A) + "\n" + _ler(KB_B)
 REGRAS_TODAS  = _extrair_regras(_kb_texto)
 NIVEIS_INFO   = _extrair_niveis(_kb_texto)   # id → (nome_display, recomendacao)
+# Mapeamento inverso: nome display (maiúsculas) → id Prolog
+_NIVEL_NOME_PARA_ID = {nome.upper(): id_ for id_, (nome, _) in NIVEIS_INFO.items()}
 
 def _corrigir_acentos(texto: str) -> str:
     """Restaura acentos em texto vindo do Prolog (ficheiros sem UTF-8 acentuado)."""
@@ -229,7 +232,9 @@ SINTOMAS_KEYWORDS: dict[str, list[str]] = {
                          "tremores involuntários", "crise convulsiva", "está a convulsionar"],
     "dor_peito":        ["dor no peito", "aperto no peito", "pressão no peito",
                          "dor torácica", "dor no coração", "opressão no peito",
-                         "dor peitoral", "peito a doer"],
+                         "dor peitoral", "peito a doer", "dor forte no peito",
+                         "dor intensa no peito", "dor de peito", "dores no peito",
+                         "peito dói", "peito doer"],
     "dor_irradia":      ["irradia para o braço", "irradia para mandíbula", "irradia para costas",
                          "dor irradia", "irradiação", "dor que sobe para o braço",
                          "sobe para o braço", "vai para o braço"],
@@ -244,7 +249,8 @@ SINTOMAS_KEYWORDS: dict[str, list[str]] = {
                          "não reconhece", "perdido", "atordoado"],
     "febre_alta":       ["febre alta", "febre acima de 39", "mais de 39 graus",
                          "temperatura muito alta", "febre elevada", "39°", "40°",
-                         "39 graus", "40 graus", "febre de 39", "febre de 40"],
+                         "39 graus", "40 graus", "febre de 39", "febre de 40",
+                         "acima de 39", "mais de 39", "39.5", "40.5"],
     "dor_abd":          ["dor abdominal", "dor de barriga", "barriga a doer muito",
                          "dor no abdómen", "abdómen rígido", "dor de estômago intensa",
                          "dor na barriga", "barriga a doer", "estômago a doer muito"],
@@ -329,7 +335,26 @@ DEPENDENCIAS_NEGACAO: list[tuple] = [
 
 
 def nivel_por_sintomas(presentes: list) -> str:
-    """Devolve o nível mais grave baseado apenas nos sintomas confirmados."""
+    """Devolve o nível mais grave avaliando primeiro as regras da base de conhecimento
+    (combinações de sintomas) e só depois o mapeamento individual por sintoma.
+    Isto garante que r_em6 (febre_alta+confusao+dor_abd → sépsis) é detectado
+    mesmo quando o servidor Prolog não está disponível."""
+    presentes_set = set(presentes)
+    # 1. Verificar se alguma regra está completamente satisfeita (por ordem de gravidade)
+    for nivel in _ORDEM_NIVEIS:
+        for regra in REGRAS_TODAS:
+            if regra["nivel"] != nivel:
+                continue
+            ok = True
+            for p in regra["premissas"]:
+                m_neg = re.match(r"nao\((\w+)\)", p)
+                if m_neg:
+                    if m_neg.group(1) in presentes_set: ok = False; break
+                else:
+                    if p not in presentes_set: ok = False; break
+            if ok:
+                return nivel
+    # 2. Fallback: mapeamento individual
     for nivel in _ORDEM_NIVEIS:
         if any(s in SINTOMAS_POR_NIVEL.get(nivel, set()) for s in presentes):
             return nivel
@@ -388,6 +413,9 @@ ORDEM_PROLOG = [
 def e_resposta_simples(text: str) -> Optional[bool]:
     """Devolve True/False se a mensagem é um sim/não claro, None caso contrário."""
     t = text.lower().strip().rstrip(".,!? ")
+    # Normalizar vírgulas/ponto-e-vírgula → espaço (ex: "sim, a dor..." → "sim a dor...")
+    t = re.sub(r"[,;]", " ", t)
+    t = re.sub(r"\s+", " ", t).strip()
     SIM = {"sim", "s", "é", "e", "tenho", "sinto", "sinto-me", "yes", "claro",
            "também", "tambem", "efetivamente", "efectivamente", "pois", "exactamente",
            "exatamente", "afirmativo", "com certeza", "certamente"}
@@ -398,17 +426,30 @@ def e_resposta_simples(text: str) -> Optional[bool]:
         return True
     if t in NAO:
         return False
-    # Começa por palavra clara
-    for w in ["sim ", "claro ", "tenho ", "sinto "]:
+    # Começa por palavra clara (com ou sem vírgula a seguir)
+    for w in ["sim ", "claro ", "tenho ", "sinto ", "também ", "tambem "]:
         if t.startswith(w):
             return True
     for w in ["não ", "nao ", "nunca "]:
-        if t.startswith(w) and len(t) < 25:
+        if t.startswith(w) and len(t) < 35:
             return False
     return None
 
 
-def calcular_proximo_sintoma(sintomas: dict) -> Optional[str]:
+_INCERTO_PALAVRAS = {
+    "talvez", "não sei", "nao sei", "talvez sim", "talvez não", "talvez nao",
+    "mais ou menos", "possivelmente", "não tenho a certeza", "nao tenho a certeza",
+    "incerto", "incerta", "pode ser", "acho que sim", "acho que não", "acho que nao",
+    "não tenho certeza", "nao tenho certeza", "não tenho a certeza",
+}
+
+def e_resposta_incerta(text: str) -> bool:
+    """Verdade se a mensagem expressa incerteza (talvez/não sei/pode ser)."""
+    t = text.lower().strip()
+    return any(p in t for p in _INCERTO_PALAVRAS) and e_resposta_simples(text) is None
+
+
+def calcular_proximo_sintoma(sintomas: dict, perguntas_feitas: Optional[set] = None) -> Optional[str]:
     """
     Dado o estado actual dos sintomas conhecidos, devolve o sintoma mais informativo
     a perguntar a seguir, guiado pelas regras da base de conhecimento.
@@ -416,6 +457,8 @@ def calcular_proximo_sintoma(sintomas: dict) -> Optional[str]:
     Para cada regra activa (não eliminada, não resolvida), as suas premissas ainda
     desconhecidas recebem um score = CF * (1 + n_premissas_já_confirmadas).
     O sintoma com maior score acumulado é o mais discriminante.
+    Sintomas já perguntados (mesmo sem resposta clara) são excluídos para evitar
+    repetição.
     """
     from collections import defaultdict
     scores: defaultdict = defaultdict(float)
@@ -432,7 +475,6 @@ def calcular_proximo_sintoma(sintomas: dict) -> Optional[str]:
             val   = sintomas.get(sint)
 
             if m_neg:
-                # premissa nao(x): a regra precisa que x esteja ausente
                 if val == "sim":
                     eliminada = True
                     break
@@ -441,7 +483,6 @@ def calcular_proximo_sintoma(sintomas: dict) -> Optional[str]:
                 else:
                     desconhecidos.append(sint)
             else:
-                # premissa positiva: a regra precisa que x esteja presente
                 if val == "nao":
                     eliminada = True
                     break
@@ -453,11 +494,72 @@ def calcular_proximo_sintoma(sintomas: dict) -> Optional[str]:
         if eliminada or not desconhecidos:
             continue
 
-        peso = cf * (1 + n_confirmadas)
+        # Quando já há sintomas confirmados, "completar uma regra em curso"
+        # vale muito mais do que "abrir uma regra nova sem evidências":
+        # - n_confirmadas >= 1: peso exponencial (regra com evidências)
+        # - n_confirmadas == 0 com sintomas já confirmados: peso reduzido (0.2×)
+        #   → impede que febre_alta (8 regras independentes) bata dor_irradia
+        #     (1 regra com dor_peito já confirmado)
+        has_confirmed_sintoma = any(v == "sim" for v in sintomas.values())
+        if n_confirmadas == 0 and has_confirmed_sintoma:
+            peso = cf * 0.2
+        else:
+            peso = cf * (2 ** n_confirmadas)
         for sint in desconhecidos:
             scores[sint] += peso
 
+    # Excluir sintomas já perguntados mas sem resposta clara
+    if perguntas_feitas:
+        for s in perguntas_feitas:
+            scores.pop(s, None)
+
     return max(scores, key=scores.__getitem__) if scores else None
+
+
+def tem_regra_emergencia_pendente(sintomas: dict) -> bool:
+    """True se uma regra de emergência tem ≥2 premissas confirmadas e ≥1 desconhecida.
+    Nesse caso a triagem não deve disparar — falta perguntar o sintoma restante que pode
+    elevar o resultado para EMERGÊNCIA (ex: r_em6 com febre_alta+dor_abd mas confusao?)."""
+    for regra in REGRAS_TODAS:
+        if regra["nivel"] != "emergencia":
+            continue
+        n_conf, n_desc, eliminada = 0, 0, False
+        for p in regra["premissas"]:
+            m_neg = re.match(r"nao\((\w+)\)", p)
+            sint  = m_neg.group(1) if m_neg else p
+            val   = sintomas.get(sint)
+            if m_neg:
+                if val == "sim": eliminada = True; break
+                elif val == "nao": n_conf += 1
+                else: n_desc += 1
+            else:
+                if val == "nao": eliminada = True; break
+                elif val == "sim": n_conf += 1
+                else: n_desc += 1
+        if not eliminada and n_conf >= 2 and n_desc >= 1:
+            return True
+    return False
+
+
+def tem_regra_emergencia_satisfeita(sintomas: dict) -> bool:
+    """True se alguma regra de emergência está completamente satisfeita pelos sintomas
+    confirmados. Dispara triagem imediata mesmo sem sintomas individuais de emergência
+    (ex: febre_alta + dor_abd + confusao → r_em6 → EMERGÊNCIA por sépsis)."""
+    for regra in REGRAS_TODAS:
+        if regra["nivel"] != "emergencia":
+            continue
+        satisfeita = True
+        for p in regra["premissas"]:
+            m_neg = re.match(r"nao\((\w+)\)", p)
+            sint  = m_neg.group(1) if m_neg else p
+            val   = sintomas.get(sint)
+            if m_neg:
+                if val == "sim": satisfeita = False; break   # nao(x) requer x ausente
+            else:
+                if val != "sim": satisfeita = False; break   # premissa positiva requer x=sim
+        if satisfeita:
+            return True
+    return False
 
 
 # ── MODELOS PYDANTIC ─────────────────────────────────────────────────────────
@@ -571,40 +673,99 @@ async def gerar_resposta(session: dict, user_msg: str, resultado_prolog: Optiona
         for m in hist if m["role"] != "system"
     )
 
-    # ── Caso MYCIN: resultado final — template fixo, sem LLM ────────────────
+    # ── Caso MYCIN: resultado final ──────────────────────────────────────────
     if resultado_prolog and resultado_prolog.get("type") == "resultado":
         nivel = resultado_prolog.get("nivel", "")
         rec   = _corrigir_acentos(resultado_prolog.get("recomendacao", ""))
         cf    = min(resultado_prolog.get("confianca_pct", 0), 95)
         sint_conf = conf_txt if conf_txt != "nenhum" else "os sintomas descritos"
         emergencia_aviso = "\n\n⚠️ **Ligue 112 (INEM) imediatamente.**" if "EMERG" in nivel.upper() else ""
+
+        # Intro empática gerada por LLM — curta, sem revelar o resultado
+        intro_prompt = (
+            f"Assistente SNS24. Português de Portugal.\n"
+            f"Acabaste de avaliar os sintomas de alguém após uma conversa.\n"
+            f"Escreve UMA frase curta, profissional e empática a concluir a avaliação.\n"
+            f"Exemplos: 'Obrigado pela sua colaboração.' / 'Analisei os seus sintomas com atenção.' / 'Avaliação concluída.'\n"
+            f"PROIBIDO: revelar resultado, nível, recomendações, mencionar 112.\n"
+            f"Resposta (só a frase, sem aspas):"
+        )
+        intro = await _chamar_ollama(intro_prompt, max_tokens=25)
+        intro = re.sub(r"(?i)(112|urgên|emergên|imediatamente|ligue|nivel|nível|muito urgente|emergência).*", "", intro).strip()
+        if not intro or len(intro) < 5:
+            intro = "Obrigado pela sua colaboração."
+
         return (
+            f"{intro}\n\n"
             f"Com base nos sintomas que descreveu ({sint_conf}), a triagem está concluída.\n\n"
             f"**Nível: {nivel}** (confiança: {cf}%)\n\n"
             f"**Recomendação:** {rec}{emergencia_aviso}"
         )
 
-    # ── Caso conversa: acknowledgment (LLM) + pergunta (código) ──────────────
+    # ── Caso conversa: acknowledgment contextual (LLM) + pergunta ────────────
     pergunta = DESCRICAO_PERGUNTA.get(prox_sint, "") if prox_sint else ""
 
     if pergunta:
-        # LLM gera APENAS o acknowledgment — 1 frase neutra, sem recomendações clínicas
+        # Construir contexto do que aconteceu neste turno
+        ultima = session.get("ultima_pergunta")
+        resp_simples = e_resposta_simples(user_msg)
+        if resp_simples is not None and ultima:
+            sint_name = SINTOMAS_PT.get(ultima, ultima)
+            situacao = f"confirmou '{sint_name}'" if resp_simples else f"disse que não tem '{sint_name}'"
+        elif ultima and e_resposta_incerta(user_msg):
+            sint_name = SINTOMAS_PT.get(ultima, ultima)
+            situacao = f"não tem certeza sobre '{sint_name}'"
+        else:
+            situacao = f"disse: \"{user_msg[:80]}\""
+
         ack_prompt = (
-            f"SNS24. Português de Portugal.\n"
-            f"O utilizador disse: \"{user_msg}\"\n"
-            f"Escreve UMA frase curta e neutra a reconhecer o que disse (ex: 'Entendido.' ou 'Compreendo.').\n"
-            f"PROIBIDO: diagnósticos, recomendações, mencionar 112, urgência ou gravidade.\n"
-            f"Resposta (só a frase, sem aspas):"
+            f"Assistente SNS24. Português de Portugal (usa 'si', 'seu', 'sua'; NUNCA 'você').\n"
+            f"Situação: o utilizador {situacao}.\n\n"
+            f"Escreve APENAS reconhecimento + transição. Formato obrigatório:\n"
+            f"  [frase empática curta]. [palavras de transição]:\n"
+            f"Exemplos:\n"
+            f"  Entendido, obrigado por partilhar. Para continuar:\n"
+            f"  Percebo, lamento que se sinta assim. Preciso também de saber:\n"
+            f"  Compreendo. Para continuar a avaliação:\n"
+            f"  Obrigado por me dizer isso. Diga-me também:\n"
+            f"PROIBIDO: perguntas, diagnósticos, 112, urgência, emergência, gravidade, "
+            f"recomendações, sintomas específicos, condições clínicas, nomes de doenças.\n"
+            f"Resposta (só o texto, sem aspas, sem nova linha):"
         )
-        ack = await _chamar_ollama(ack_prompt, max_tokens=30)
-        # Remover qualquer recomendação clínica que o modelo possa ter gerado
-        ack = re.sub(r"\?.*", "", ack).strip().rstrip(".,")
-        ack = re.sub(r"(?i)(112|urgên|emergên|imediatamente|ligue|grave|sério).*", "", ack).strip().rstrip(".,")
-        if not ack:
-            ack = "Entendido"
-        return f"{ack}. {pergunta}"
+        ack = await _chamar_ollama(ack_prompt, max_tokens=35)
+        # Limpar: remover perguntas e conteúdo proibido
+        ack = re.sub(r"\?.*", "", ack).strip()
+        ack = re.sub(r"(?i)(112|urgên|emergên|imediatamente|ligue|grave|sério|diagnóst).*", "", ack).strip()
+        # Corrigir pronomes e formas verbais erradas do LLM
+        ack = re.sub(r"\bvocê\b", "si", ack, flags=re.IGNORECASE)
+        ack = re.sub(r"\btens\b", "tem", ack)   # forma "tu" → "si/você"
+        # Verificar se o LLM antecipou o próximo sintoma (alucinação clínica).
+        # Usa as keywords canónicas do sintoma (min 4 chars) para detetar conjugações
+        # e variações que o threshold de 6 chars na SINTOMAS_PT/DESCRICAO_PERGUNTA falharia
+        # (ex: "febre"=5, "tosse"=5 não eram apanhados antes).
+        if prox_sint and prox_sint in SINTOMAS_KEYWORDS:
+            _stop_kw = {"com", "sem", "que", "não", "nao", "uma", "num", "por",
+                        "para", "mais", "também", "preciso", "saber", "muito",
+                        "assim", "ainda", "esta", "estar", "sinais", "grave",
+                        "repet", "líqui", "beber", "ingerir"}
+            _kws_prox: set = set()
+            for kw_phrase in SINTOMAS_KEYWORDS[prox_sint]:
+                for w in kw_phrase.split():
+                    w_clean = w.lower().rstrip(".,!?")
+                    if len(w_clean) >= 4 and w_clean not in _stop_kw:
+                        _kws_prox.add(w_clean)
+            if any(kw in ack.lower() for kw in _kws_prox):
+                ack = "Entendido. Preciso também de saber"
+        # Manter no máximo 2 frases (reconhecimento + transição)
+        frases = re.split(r'(?<=[.!])\s+', ack)
+        if len(frases) > 2:
+            ack = " ".join(frases[:2])
+        ack = ack.strip().rstrip(".,: ")
+        if not ack or len(ack) < 4:
+            ack = "Entendido. Preciso também de saber"
+        return f"{ack}: {pergunta}"
     else:
-        # Motor esgotou perguntas — pede ao LLM para resumir e anunciar análise
+        # Motor esgotou perguntas — LLM resume e anuncia análise
         ctx_rag = "\n".join(f"- {d}" for d in rag.retrieve(user_msg, top_k=2))
         prompt = (
             f"SNS24. Português de Portugal. 2-3 frases.\n"
@@ -618,6 +779,44 @@ async def gerar_resposta(session: dict, user_msg: str, resultado_prolog: Optiona
 
 
 # ── ENDPOINTS ────────────────────────────────────────────────────────────────
+@app.get("/")
+async def root():
+    return FileResponse(os.path.join(_DIR, "interface.html"))
+
+
+@app.get("/chatbot.html")
+async def chatbot_html():
+    return FileResponse(os.path.join(_DIR, "chatbot.html"))
+
+
+# ── PROXY para o servidor Prolog (porta 8080) ─────────────────────────────────
+@app.post("/api/start")
+async def proxy_start(request: Request):
+    body = await request.body()
+    async with httpx.AsyncClient(timeout=40.0) as client:
+        r = await client.post(f"{PROLOG_URL}/api/start", content=body,
+                              headers={"Content-Type": "application/json"})
+    return r.json()
+
+
+@app.post("/api/answer")
+async def proxy_answer(request: Request):
+    body = await request.body()
+    async with httpx.AsyncClient(timeout=40.0) as client:
+        r = await client.post(f"{PROLOG_URL}/api/answer", content=body,
+                              headers={"Content-Type": "application/json"})
+    return r.json()
+
+
+@app.post("/api/validate")
+async def proxy_validate(request: Request):
+    body = await request.body()
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        r = await client.post(f"{PROLOG_URL}/api/validate", content=body,
+                              headers={"Content-Type": "application/json"})
+    return r.json()
+
+
 @app.post("/api/chat/start")
 async def start_chat():
     sid = str(uuid.uuid4())
@@ -627,6 +826,7 @@ async def start_chat():
         "triagem_feita":    False,
         "resultado_prolog": None,
         "ultima_pergunta":  None,   # sintoma sobre o qual se perguntou por último
+        "perguntas_feitas": set(),  # sintomas já perguntados (evita repetições)
         "n_trocas":         0,      # número de turnos de conversa
     }
     boas_vindas = (
@@ -653,22 +853,42 @@ async def chat_message(body: MsgBody):
     session["history"].append({"role": "user", "content": user_msg})
     session["n_trocas"] += 1
 
+    # Triagem já concluída — mostrar resultado armazenado sem reprocessar
+    if session["triagem_feita"] and session.get("resultado_prolog"):
+        rec   = _corrigir_acentos(session["resultado_prolog"].get("recomendacao", ""))
+        nivel = session["resultado_prolog"].get("nivel", "")
+        sintomas_json = [
+            {"id": s, "nome": SINTOMAS_PT.get(s, s), "presente": v == "sim"}
+            for s, v in session["sintomas"].items()
+        ]
+        return {
+            "message": (
+                f"A triagem já foi concluída. **{nivel}** — {rec}.\n\n"
+                f"Se necessitar de uma nova avaliação, por favor inicie uma nova conversa."
+            ),
+            "sintomas":         sintomas_json,
+            "triagem_feita":    True,
+            "resultado_prolog": session["resultado_prolog"],
+        }
+
     # 1. Se a mensagem é um sim/não simples à última pergunta, mapeá-la directamente
     resp_simples = e_resposta_simples(user_msg)
-    if resp_simples is not None and session.get("ultima_pergunta"):
-        sint_perguntado = session["ultima_pergunta"]
-        if sint_perguntado not in session["sintomas"]:
-            session["sintomas"][sint_perguntado] = "sim" if resp_simples else "nao"
+    ultima_perg  = session.get("ultima_pergunta")
+    if resp_simples is not None and ultima_perg:
+        if ultima_perg not in session["sintomas"]:
+            session["sintomas"][ultima_perg] = "sim" if resp_simples else "nao"
+    elif e_resposta_incerta(user_msg) and ultima_perg:
+        # Resposta incerta ("talvez", "não sei") — não regista o sintoma,
+        # mas marca como perguntado para não repetir a mesma questão
+        session["perguntas_feitas"].add(ultima_perg)
 
-    # 2. Detecção adicional: keywords + LLM (não sobrescreve o que já foi mapeado)
-    # Ignorar LLM em respostas muito curtas (sim/não/talvez) — evita alucinações
-    kw        = detectar_sintomas_keywords(user_msg)
-    llm_extra = await extrair_sintomas_llm(user_msg) if len(user_msg.strip()) > 8 else {"presentes": [], "ausentes": []}
-
-    for s in set(kw["presentes"] + llm_extra["presentes"]):
+    # 2. Detecção de sintomas via keywords (llama3.2:3b produz alucinações na
+    # extração estruturada, por isso confiamos apenas nas keywords que são fiáveis)
+    kw = detectar_sintomas_keywords(user_msg)
+    for s in kw["presentes"]:
         if s not in session["sintomas"]:
             session["sintomas"][s] = "sim"
-    for s in set(kw["ausentes"] + llm_extra["ausentes"]):
+    for s in kw["ausentes"]:
         if s not in session["sintomas"]:
             session["sintomas"][s] = "nao"
 
@@ -676,20 +896,28 @@ async def chat_message(body: MsgBody):
     aplicar_exclusoes(session["sintomas"])
 
     # 3. Motor de regras: calcular a próxima pergunta mais informativa
-    prox_sint = calcular_proximo_sintoma(session["sintomas"])
+    # Passa perguntas_feitas para evitar repetir perguntas sem resposta clara
+    prox_sint = calcular_proximo_sintoma(session["sintomas"], session["perguntas_feitas"])
 
     # 4. Decidir se é altura de fazer triagem formal MYCIN
     has_emergency = any(session["sintomas"].get(s) == "sim" for s in SINTOMAS_EMERGENCIA)
     n_known       = sum(1 for v in session["sintomas"].values() if v in ("sim", "nao"))
-    # Sintomas que justificam triagem antecipada mesmo com poucas respostas
+    # Sintomas que justificam triagem antecipada
     SINTOMAS_URGENTES = {"febre_alta", "febre_bebe", "dor_peito", "dor_abd",
                          "fala_dificil", "fraqueza_lado", "confusao", "dor_persiste"}
     has_urgente = any(session["sintomas"].get(s) == "sim" for s in SINTOMAS_URGENTES)
+    # Urgentes: bloquear triagem se uma regra de emergência ainda tem premissas desconhecidas
+    # (ex: febre_alta+dor_abd confirmados → r_em6 precisa de confusao antes de concluir)
+    # O catch-all dispara às 6 trocas para não deixar a conversa interminável
+    emerg_pendente   = tem_regra_emergencia_pendente(session["sintomas"])
+    emerg_satisfeita = tem_regra_emergencia_satisfeita(session["sintomas"])
     deve_triagem  = (
-        (has_emergency)
-        or (has_urgente and n_known >= 2)
-        or (prox_sint is None and n_known >= 2)
+        (has_emergency or emerg_satisfeita)   # emergência individual OU regra completa
         or (session["n_trocas"] >= 6 and n_known >= 4)
+        or (not emerg_pendente and (
+            (has_urgente and n_known >= 5 and session["n_trocas"] >= 3)
+            or (prox_sint is None and n_known >= 3 and session["n_trocas"] >= 3)
+        ))
     ) and not session["triagem_feita"]
 
     resultado_prolog = None
@@ -707,8 +935,10 @@ async def chat_message(body: MsgBody):
             resultado_prolog = {
                 "type":          "resultado",
                 "nivel":         nome,
+                "nivel_id":      nivel_esperado,
                 "recomendacao":  rec,
                 "confianca_pct": 65,
+                "fallback":      True,
             }
         # Validar: MYCIN não pode ser mais grave do que os sintomas justificam
         elif nivel_mycin == "emergencia" and nivel_esperado not in ("emergencia",):
@@ -716,16 +946,30 @@ async def chat_message(body: MsgBody):
             resultado_prolog = {
                 "type":          "resultado",
                 "nivel":         nome,
+                "nivel_id":      nivel_esperado,
                 "recomendacao":  rec,
                 "confianca_pct": 70,
+                "fallback":      True,
             }
         else:
+            # Garantir que o resultado do Prolog tem sempre nivel_id (pode vir como ID
+            # "muito_urgente" ou como nome display "MUITO URGENTE" — normalizar ambos)
+            if "nivel_id" not in resultado_mycin:
+                raw = nivel_mycin.upper()
+                resultado_mycin["nivel_id"] = (
+                    nivel_mycin if nivel_mycin in NIVEIS_INFO
+                    else _NIVEL_NOME_PARA_ID.get(raw, nivel_mycin)
+                )
             resultado_prolog = resultado_mycin
 
         session["resultado_prolog"] = resultado_prolog
 
     # 5. Registar a próxima pergunta na sessão (para mapear sim/não no próximo turno)
-    session["ultima_pergunta"] = prox_sint if not resultado_prolog else None
+    if prox_sint and not resultado_prolog:
+        session["ultima_pergunta"] = prox_sint
+        session["perguntas_feitas"].add(prox_sint)
+    else:
+        session["ultima_pergunta"] = None
 
     resposta = await gerar_resposta(session, user_msg, resultado_prolog, prox_sint)
 

@@ -84,6 +84,20 @@ regra(r_ur8, se([febre_alta, tosse_febre, dor_persiste]),   entao(urgente), 0.85
 % Dor_abd sem sintomas GI afasta gastroenterite; sugere origem cirurgica/urologica.
 regra(r_ur9, se([dor_abd, nao(vomitos), nao(diarreia)]),    entao(urgente), 0.80).
 
+% Vomitos sem diarreia: desidratacao por via gastrica, sem dupla perda de liquidos
+regra(r_ur10, se([vomitos, nao(diarreia)]),              entao(urgente),       0.60).
+% Diarreia grave sem vomitos: ainda assim urgente pois a definicao ja implica desidratacao
+regra(r_ur13, se([diarreia, nao(vomitos)]),              entao(urgente),       0.55).
+% Dor de garganta com febre alta: suspeita de amigdalite bacteriana
+regra(r_ur11, se([dor_garganta, febre_alta]),            entao(urgente),       0.75).
+% Bebe com vomitos e sem diarreia: reservas do lactente esgotam-se rapidamente
+regra(r_ur12, se([febre_bebe, vomitos, nao(diarreia)]),  entao(muito_urgente), 0.80).
+
+% Confusao + febre alta sem dor abdominal: padrao de meningite ou encefalite (nao sepsis)
+regra(r_mu10, se([confusao, febre_alta, nao(dor_abd)]),  entao(muito_urgente), 0.85).
+% Dificuldade respiratoria com febre alta: suspeita de pneumonia grave ou sepsis respiratoria
+regra(r_em8,  se([resp_dificuldade, febre_alta]),         entao(emergencia),    0.87).
+
 % POUCO URGENTE
 regra(r_pu1, se([constipacao]),           entao(pouco_urgente), 0.70).
 regra(r_pu2, se([dor_leve]),              entao(pouco_urgente), 0.65).
@@ -128,6 +142,12 @@ explicacao_regra(r_ur6, 'Dificuldade em engolir acompanhada de dor pode indicar 
 explicacao_regra(r_ur7, 'Bebe febril com perda de liquidos por vomitos E diarreia enfrenta risco critico de desidratacao severa. As reservas de um lactente esgotam-se em horas. Este quadro justifica ida imediata a urgencia hospitalar.').
 explicacao_regra(r_ur8, 'Febre alta com tosse e dor que nao cede a analgesicos aponta para infeccao respiratoria profunda (ex: pneumonia bacteriana), que pode necessitar de antibioterapia urgente.').
 explicacao_regra(r_ur9, 'Dor abdominal sem vomitos nem diarreia afasta a gastroenterite como causa. A ausencia de sintomas gastrointestinais com dor intensa sugere origem cirurgica ou urologica (apendicite, colica renal ou colecistite) que requer avaliacao medica presencial urgente.').
+explicacao_regra(r_ur10, 'Vomitos repetidos sem diarreia comprometem a hidratacao por via gastrica isolada. A incapacidade de ingerir liquidos pode exigir reposicao intravenosa.').
+explicacao_regra(r_ur13, 'Diarreia grave ja implica, por definicao, sinais de desidratacao. Sem vomitos ha margem para hidratacao oral supervisionada, mas a vigilancia medica e necessaria.').
+explicacao_regra(r_ur11, 'Dor de garganta associada a febre alta levanta suspeita de amigdalite bacteriana por estreptococo, que pode exigir antibioterapia e avaliar o risco de abscesso.').
+explicacao_regra(r_ur12, 'Bebe febril com vomitos repetidos enfrenta risco elevado de desidratacao rapida. As reservas de um lactente esgotam-se em poucas horas, justificando avaliacao hospitalar urgente mesmo sem diarreia simultanea.').
+explicacao_regra(r_mu10, 'Confusao mental associada a febre alta sem dor abdominal e o padrao clinico de meningite bacteriana ou encefalite viral. Estas infeccoes do sistema nervoso central sao emergencias neurologicas mesmo sem o quadro abdominal de sepsis.').
+explicacao_regra(r_em8, 'Dificuldade respiratoria grave com febre alta levanta a suspeita de pneumonia severa ou sepsis de foco pulmonar, ambas com risco de falencia respiratoria iminente e indicacao para avaliacao hospitalar imediata.').
 
 % Pouco urgente / sem alarme
 explicacao_regra(r_pu1, 'Sintomas gripais ligeiros devem ser autotratados com repouso.').

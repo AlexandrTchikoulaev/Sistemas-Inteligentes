@@ -526,12 +526,13 @@ function mostrarErro(msg) {
 // ── SIDEBAR: SINTOMAS ────────────────────────────────────────────────────────
 function atualizarSintomas(sintomas) {
   const el = document.getElementById('sint-list');
-  if (!sintomas || !sintomas.length) {
+  const presentes = (sintomas || []).filter(s => s.presente);
+  if (!presentes.length) {
     el.innerHTML = '<div class="sint-empty">Nenhum sintoma identificado ainda.</div>';
     return;
   }
-  el.innerHTML = sintomas.map(s => `
-    <div class="sint-item ${s.presente ? 'sint-pres' : 'sint-aus'}">
+  el.innerHTML = presentes.map(s => `
+    <div class="sint-item sint-pres">
       <div class="sint-dot"></div>
       <span>${esc(s.nome)}</span>
     </div>`).join('');
@@ -552,13 +553,16 @@ function mostrarResultado(res) {
     el.innerHTML = '<div class="res-vazio">Motor MYCIN: sem resultado disponível.</div>';
     return;
   }
-  const nid = res.nivel_id || 'sem_sintomas_alarme';
-  const c   = NIVEL_CORES[nid] || {cor:'#059669', bg:'#f0fdf4', label: res.nivel || nid};
+  const nid = res.nivel_id && NIVEL_CORES[res.nivel_id] ? res.nivel_id : null;
+  const c   = nid ? NIVEL_CORES[nid] : {cor:'#6b7280', bg:'#f9fafb', label: res.nivel || '—'};
+  const cfLabel = res.fallback
+    ? `${res.confianca_pct || 0}% <span style="font-weight:400;font-size:11px">(estimativa — Prolog indisponível)</span>`
+    : `${res.confianca_pct || 0}%`;
   el.innerHTML = `
     <div class="res-card" style="border-color:${c.cor};background:${c.bg}">
       <div class="res-nivel" style="color:${c.cor}">${c.label}</div>
       <div class="res-rec">${esc(res.recomendacao || '')}</div>
-      <div class="res-cf" style="color:${c.cor}">${res.confianca_pct || 0}%</div>
+      <div class="res-cf" style="color:${c.cor}">${cfLabel}</div>
       <div class="res-cf-lbl">Confiança MYCIN</div>
       <div class="res-mycin-badge">⚙️ Motor MYCIN (Parte A)</div>
     </div>`;
