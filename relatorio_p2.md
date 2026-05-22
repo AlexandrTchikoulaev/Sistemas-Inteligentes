@@ -32,7 +32,113 @@ O servidor Python é também proxy do servidor Prolog, expondo os seus endpoints
 
 ---
 
-## 3. Base de Conhecimento e RAG
+## 3. Evolução da Base de Conhecimento (Parte A)
+
+No contexto do P2, a base de conhecimento `base_conhecimento_a.pl` foi revista e expandida relativamente à versão entregue no P1. As alterações têm dois objetivos: aumentar a cobertura clínica do sistema para padrões de doença grave que a versão original não detetava, e tornar o raciocínio mais preciso eliminando mecanismos que se revelaram problemáticos em teste.
+
+### 3.1 Novos Sintomas
+
+Foram adicionados cinco sintomas que não existiam na versão original:
+
+| Identificador | Descrição |
+|---|---|
+| `rigidez_nuca` | Rigidez da nuca — não consegue encostar o queixo ao peito |
+| `rash_petequial` | Manchas vermelhas ou roxas na pele que não desaparecem à pressão |
+| `reacao_alergica_grave` | Reação alérgica grave com inchaço da face, língua ou garganta |
+| `dor_cabeca_subita` | Dor de cabeça muito intensa de início súbito — "pior da vida" |
+| `visao_alterada` | Alteração súbita da visão num ou ambos os olhos |
+
+Estes sintomas cobrem quatro síndromes de alto risco que ficavam sem representação: meningite bacteriana e meningococcemia (os dois primeiros), anafilaxia (terceiro), hemorragia subaracnoideia (quarto) e AVC com envolvimento da visão (quinto). A sua adição foi necessária para que as novas regras de emergência e muito urgente descritas abaixo pudessem ser formuladas.
+
+### 3.2 Novas Regras de Emergência
+
+Foram acrescentadas quatro regras de emergência que combinam sintomas em padrões clínicos reconhecidos:
+
+| Regra | Premissas | CF | Justificação clínica |
+|---|---|---|---|
+| `r_em8` | `resp_dificuldade` + `febre_alta` | 0.87 | Suspeita de pneumonia grave ou sépsis respiratória com risco de falência iminente |
+| `r_em9` | `febre_alta` + `rigidez_nuca` | 0.92 | Padrão clássico de meningite bacteriana — emergência neurológica |
+| `r_em10` | `febre_alta` + `rash_petequial` | 0.95 | Sinal de alerta de meningococcemia — progressão para choque em horas |
+| `r_em11` | `resp_dificuldade` + `reacao_alergica_grave` | 0.93 | Anafilaxia com compromisso da via aérea — requer adrenalina e 112 |
+
+O CF elevado destas regras (0.87–0.95) reflete a sua alta especificidade: cada combinação de sintomas aponta para um único quadro clínico com risco de vida imediato.
+
+### 3.3 Novas Regras de Muito Urgente
+
+Quatro novas regras foram adicionadas ao nível muito urgente, cobrindo padrões neurológicos e cardiológicos que a versão original também não contemplava:
+
+| Regra | Premissas | CF | Justificação clínica |
+|---|---|---|---|
+| `r_mu10` | `confusao` + `febre_alta` + `nao(dor_abd)` | 0.85 | Padrão de meningite/encefalite — sem dor abdominal afasta sépsis (r_em6) |
+| `r_mu11` | `reacao_alergica_grave` | 0.80 | Pode evoluir para anafilaxia — requer avaliação hospitalar imediata |
+| `r_mu12` | `dor_cabeca_subita` | 0.85 | Sinal clássico de hemorragia subaracnoideia por rotura de aneurisma |
+| `r_mu13` | `visao_alterada` + `fala_dificil` | 0.90 | Padrão BE-FAST completo de AVC — alta certeza diagnóstica |
+
+A regra `r_mu10` é particularmente relevante do ponto de vista do raciocínio: introduz a negação de `dor_abd` como premissa para distinguir meningite/encefalite (muito urgente) de sépsis (emergência — regra `r_em6`). Sem esta distinção, um doente com confusão e febre mas sem dor abdominal não seria corretamente escalado.
+
+### 3.4 Novas Regras de Urgente e Muito Urgente para Situações Pediátricas e GI
+
+Foram acrescentadas cinco regras que refinam a triagem de quadros gastrointestinais e pediátricos:
+
+| Regra | Premissas | CF | Nível | Justificação |
+|---|---|---|---|---|
+| `r_ur10` | `vomitos` + `nao(diarreia)` | 0.60 | Urgente | Desidratação por via gástrica isolada — pode exigir reposição IV |
+| `r_ur11` | `dor_garganta` + `febre_alta` | 0.75 | Urgente | Suspeita de amigdalite bacteriana com risco de abscesso |
+| `r_ur12` | `febre_bebe` + `vomitos` + `nao(diarreia)` | 0.80 | Muito Urgente | Bebé com reservas limitadas — risco de desidratação rápida |
+| `r_ur13` | `diarreia` + `nao(vomitos)` | 0.55 | Urgente | Diarreia grave implica desidratação; sem vómitos há margem para hidratação oral vigiada |
+| `r_ur14` | `visao_alterada` | 0.60 | Urgente | AVC, glaucoma agudo ou oclusão retiniana — risco de cegueira permanente |
+
+A lógica comum a `r_ur10`/`r_ur13` e `r_ur12` é a separação das vias de perda de líquidos: vómitos e diarreia em simultâneo já tinham regra própria (`r_ur3`); as novas regras cobrem os casos onde apenas uma das vias está comprometida, garantindo triagem adequada mesmo nesses cenários.
+
+### 3.5 Novas Regras de Pouco Urgente
+
+Foram adicionadas três regras que servem para **evitar a sobreavaliação** (over-triage) de quadros virais benignos:
+
+| Regra | Premissas | CF | Justificação |
+|---|---|---|---|
+| `r_pu5` | `constipacao` + `dor_garganta` + `nao(febre_alta)` | 0.72 | Quadro viral típico — dor de garganta no contexto de constipação sem febre alta não justifica urgência |
+| `r_pu6` | `febre_baixa` + `mal_estar` + `nao(dor_abd)` | 0.68 | Infeção viral autolimitada — a ausência de dor abdominal afasta complicações |
+| `r_pu7` | `constipacao` + `dor_persiste` + `nao(febre_alta)` | 0.65 | Cefaleia/mialgia gripal — dor que não cede no contexto de constipação é gripal, não urgência |
+
+Estas regras interagem diretamente com as modificações às regras `r_ur5` e `r_ur6` descritas a seguir: em conjunto, criam caminhos de raciocínio que diferenciam o mesmo sintoma (por exemplo, dor de garganta) consoante o contexto clínico completo.
+
+### 3.6 Modificação de Regras Existentes
+
+Duas regras foram modificadas para adicionar condições de negação que corrigiam classificações incorretas:
+
+**`r_ur5` — Dor persistente:**
+- Versão original: `se([dor_persiste])` → urgente (CF 0.40)
+- Versão atual: `se([dor_persiste, nao(constipacao)])` → urgente (CF 0.40)
+
+Sem esta modificação, uma cefaleia ou mialgia gripal que não cedia ao paracetamol era classificada como urgente. O contexto de constipação indica que a dor tem origem viral e não requer consulta de urgência — é este caso que a nova regra `r_pu7` trata.
+
+**`r_ur6` — Dor de garganta:**
+- Versão original: `se([dor_garganta])` → urgente (CF 0.55)
+- Versão atual: `se([dor_garganta, nao(constipacao)])` → urgente (CF 0.55)
+
+Analogamente, a dor de garganta isolada deve ser urgente apenas quando não está inserida num quadro de constipação. Com constipação, a regra `r_pu5` classifica-a como pouco urgente se não houver febre alta. Sem a condição `nao(constipacao)` em `r_ur6`, as duas regras disputavam o mesmo caso e o motor reportava urgente por ter um CF mais alto.
+
+### 3.7 Remoção das Regras de Contra-Evidência (CF Negativos)
+
+A versão original continha 13 regras com CF negativo (`r_c_em1` a `r_c_ur3`) que penalizavam os níveis mais graves quando sintomas benignos estavam presentes. Por exemplo, a presença de `dor_leve` reduzia o CF de emergência em 0.70 e o de muito urgente em 0.55.
+
+Estas regras foram **integralmente removidas** por duas razões:
+
+1. **Segurança**: Um CF negativo pode, em teoria, baixar o resultado final abaixo de um limiar e esconder uma emergência real. Se um doente tem uma paragem respiratória (`r_em1`, CF 0.95) mas menciona também que tem um ligeiro mal-estar (`r_c_em4`, CF −0.45), a fórmula MYCIN combinaria os dois valores e o resultado de emergência seria atenuado — comportamento clinicamente inaceitável.
+
+2. **Substituição por condições negadas**: As novas regras com premissas `nao(x)` cumprem a mesma função de forma segura e explícita. Em vez de penalizar um nível grave quando um sintoma benigno está presente, as regras agora só disparam para um nível benigno quando a ausência de sintomas graves é confirmada. O raciocínio é positivo e controlado, não subtrativo.
+
+### 3.8 Atualização da Ordem de Questionamento
+
+A predicado `ordem_sintomas/1`, que define a sequência de perguntas no motor Prolog do P1, foi atualizada para incluir os cinco novos sintomas nas posições adequadas:
+
+- `reacao_alergica_grave` foi inserida imediatamente após `convulsoes` — porque pode evoluir rapidamente para anafilaxia e deve ser avaliada cedo.
+- `visao_alterada` e `dor_cabeca_subita` foram colocadas após os sinais de AVC clássicos (`fala_dificil`, `fraqueza_lado`) — completando o rastreio neurológico antes de passar para sintomas de menor gravidade.
+- `rigidez_nuca` e `rash_petequial` foram colocadas imediatamente após `febre_alta` — porque a sua relevância clínica depende da presença de febre e a combinação deve ser avaliada em sequência.
+
+---
+
+## 4. Base de Conhecimento e RAG
 
 ### 3.1 Processamento dos Ficheiros Prolog
 
@@ -65,7 +171,7 @@ A recuperação é feita por similaridade de cosseno entre o vetor da consulta e
 
 ---
 
-## 4. Deteção de Sintomas
+## 5. Deteção de Sintomas
 
 ### 4.1 Sistema de Keywords
 
@@ -73,7 +179,7 @@ A deteção de sintomas na mensagem do utilizador é feita através de um dicion
 
 A deteção de negações é feita por análise de contexto: para cada keyword encontrada no texto, é inspecionada uma janela de 35 carateres anteriores à ocorrência. Se essa janela contiver palavras de negação ("não", "sem", "nunca", "ausência de"), o sintoma é marcado como ausente em vez de presente.
 
-Este sistema determinou a decisão de **desativar** o LLM para a tarefa de extração de sintomas (ver 4.2), dado que o sistema de keywords demonstrou ser mais fiável e determinístico para as condições do projeto.
+Este sistema determinou a decisão de **desativar** o LLM para a tarefa de extração de sintomas (ver 5.2), dado que o sistema de keywords demonstrou ser mais fiável e determinístico para as condições do projeto.
 
 ### 4.2 Limitações do LLM na Extração Estruturada
 
@@ -85,7 +191,7 @@ Após a deteção de novos sintomas, é aplicada uma etapa de consistência lóg
 
 ---
 
-## 5. Motor de Inferência MYCIN
+## 6. Motor de Inferência MYCIN
 
 ### 5.1 Motor MYCIN em Python (Fallback)
 
@@ -111,7 +217,7 @@ Após obter o resultado do Prolog, o motor Python é também executado em parale
 
 ---
 
-## 6. Gestão da Conversa
+## 7. Gestão da Conversa
 
 ### 6.1 Estado de Sessão
 
@@ -155,7 +261,7 @@ Quando a resposta é incerta (`e_resposta_incerta`), o sintoma não é registado
 
 ---
 
-## 7. Geração de Linguagem Natural com LLM
+## 8. Geração de Linguagem Natural com LLM
 
 ### 7.1 Modelo e Configuração
 
@@ -188,7 +294,7 @@ A saída do LLM é sempre sujeita a pós-processamento antes de ser enviada ao u
 
 ---
 
-## 8. Interface Web
+## 9. Interface Web
 
 A interface de utilizador é uma página HTML de página única (`chatbot.html`), servida diretamente pelo servidor FastAPI. É implementada em HTML, CSS e JavaScript puro, sem dependências externas de framework.
 
@@ -203,7 +309,7 @@ O estado de ligação ao Ollama é monitorizado via `GET /api/chat/status`, que 
 
 ---
 
-## 9. Conclusão
+## 10. Conclusão
 
 O sistema desenvolvido integra três paradigmas distintos de inteligência artificial: raciocínio baseado em regras (motor MYCIN / Prolog), recuperação de informação (RAG / TF-IDF) e geração de linguagem natural (LLM / Llama 3.2). A divisão de responsabilidades é clara: a lógica clínica e de inferência é inteiramente controlada pelo motor de regras e pela base de conhecimento do P1; o LLM é confinado à dimensão linguística da interação, com filtros que impedem que alucinações comprometam a segurança do resultado.
 
