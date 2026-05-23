@@ -226,7 +226,7 @@ Cada sessão é identificada por um UUID e mantém em memória o seguinte estado
 - `sintomas` — dicionário `{id_sintoma: "sim" | "nao"}` com todos os sintomas avaliados.
 - `history` — lista de mensagens da conversa (papel + conteúdo).
 - `ultima_pergunta` — sintoma sobre o qual foi feita a última pergunta, para mapear corretamente respostas do tipo "sim"/"não" sem que o utilizador repita o nome do sintoma.
-- `perguntas_feitas` — conjunto de sintomas já perguntados, para evitar repetições quando a resposta foi inconclusiva.
+- `perguntas_feitas` — conjunto de sintomas já perguntados. Um sintoma é adicionado a este conjunto **apenas depois de o utilizador responder de forma clara** (sim, não ou incerto) — não no momento em que a pergunta é selecionada. Esta distinção evita que uma mensagem não reconhecida (como um pedido de explicação) "queime" um sintoma antes de o utilizador ter tido oportunidade de responder.
 - `triagem_feita` — booleano que impede que a triagem seja executada mais de uma vez.
 - `n_trocas` — contador de turnos de conversa.
 
@@ -247,7 +247,7 @@ O sintoma com o score acumulado mais alto entre todas as regras ativas é seleci
 A triagem formal é desencadeada quando se verifica uma das seguintes condições:
 
 - Está presente pelo menos um sintoma de emergência individual (`sem_respiracao`, `sem_pulso`, `resp_dificuldade`, `hemorragia`, `inconsciente`, `convulsoes`).
-- Uma regra de emergência está completamente satisfeita pelos sintomas confirmados (por exemplo, `febre_alta` + `confusao` + `dor_abd` → sépsis, regra `r_em6`).
+- Uma regra de emergência está completamente satisfeita pelos sintomas confirmados (por exemplo, `febre_alta` + `confusao` + `dor_abd` → sépsis, regra `r_em6`). Neste caso é aplicado um **early-exit absoluto**: a triagem é desencadeada de imediato, sem calcular a próxima pergunta clínica nem atualizar `ultima_pergunta` ou `perguntas_feitas`. Este mecanismo separa-se explicitamente do fluxo normal para garantir que nenhuma pergunta adicional seja colocada quando já existe uma emergência confirmada.
 - Foram feitas 6 ou mais trocas e há pelo menos 4 sintomas avaliados (limite superior de conversa).
 - Para sintomas urgentes, a triagem dispara quando há 5 ou mais sintomas avaliados e pelo menos 3 trocas de conversa, **desde que** nenhuma regra de emergência tenha ainda premissas por descobrir — garantindo que o sistema não encerra prematuramente quando uma regra de emergência ainda pode ser satisfeita.
 
@@ -257,7 +257,23 @@ A função `e_resposta_simples` classifica cada mensagem como `True` (confirmaç
 
 Respostas qualificadas — como "tenho febre, mas não acima de 39 graus" — são identificadas pela presença de conjunções adversativas após um confirmador, sendo classificadas como incertas (`None`) para evitar mapeamentos incorretos. Expressões de frequência intermitente ("às vezes", "de vez em quando") são tratadas da mesma forma, dado que a triagem clínica requer confirmação, não mera possibilidade.
 
+O vocabulário de confirmações foi também estendido com **intensificadores absolutos**: respostas como "muito", "bastante", "claramente", "definitivamente", "totalmente", "absolutamente", "sem dúvida" ou "tenho sim" são mapeadas diretamente como `True` sem recorrer ao LLM. Esta extensão é implementada de forma determinística — por dicionário e expressões regulares — com latência nula, evitando uma chamada extra ao Ollama por cada turno de conversa.
+
 Quando a resposta é incerta (`e_resposta_incerta`), o sintoma não é registado, mas é adicionado ao conjunto `perguntas_feitas` para não ser repetido.
+
+### 6.5 Intercepção de Pedidos de Explicação
+
+Durante a conversa, o utilizador pode questionar a pertinência de uma pergunta clínica com mensagens como "porquê precisas de saber?", "não percebo", "o que significa isso?" ou "por que motivo me pergunta isto?". Em vez de tratar estas mensagens como respostas ao sintoma em avaliação, o sistema deteta a intenção de pedido de explicação (`e_intencao_porque`) e responde com a justificação clínica correspondente.
+
+A justificação é obtida diretamente da base de conhecimento Prolog: o predicado `explicacao(sintoma, 'Texto')`, já existente em `base_conhecimento_a.pl`, é extraído no arranque do servidor e armazenado no dicionário `EXPLICACOES_SINT`. Para cada sintoma há uma explicação textual que descreve a relevância clínica do sintoma no contexto da triagem (por exemplo, para `dor_peito`: *"A dor no peito é o sintoma primário de alerta para avaliar a hipótese de um Enfarte do Miocárdio"*).
+
+Após exibir a explicação, o sistema **repete a pergunta clínica anterior** sem avançar para o próximo sintoma. O estado de sessão não é modificado: `ultima_pergunta` mantém-se inalterado e `perguntas_feitas` não é atualizado. Desta forma, o utilizador tem oportunidade de responder com contexto adequado.
+
+### 6.6 Persistência Local de Triagens
+
+No P1, a gravação de triagens no ficheiro `triagens.csv` era feita exclusivamente através do endpoint `/api/validate` do servidor Prolog, que dependia do estado de `facto/2` da sessão Prolog ativa. Esta dependência tornava a persistência inoperante em modo fallback Python.
+
+Foi implementada a função `salvar_triagem_csv`, que é invocada pelo servidor Python sempre que uma triagem é concluída — independentemente de ter sido realizada pelo motor Prolog ou pelo motor Python. A função converte o dicionário `session["sintomas"]` numa linha binária (0/1 por sintoma), seguindo a mesma ordem de colunas do `triagens.csv` existente, e escreve-a em modo append. A coluna `nivel` recebe o identificador Prolog do nível vencedor (por exemplo, `urgente`, `muito_urgente`), garantindo compatibilidade com o pipeline de treino do P1 Parte B.
 
 ---
 
@@ -312,5 +328,7 @@ O estado de ligação ao Ollama é monitorizado via `GET /api/chat/status`, que 
 ## 10. Conclusão
 
 O sistema desenvolvido integra três paradigmas distintos de inteligência artificial: raciocínio baseado em regras (motor MYCIN / Prolog), recuperação de informação (RAG / TF-IDF) e geração de linguagem natural (LLM / Llama 3.2). A divisão de responsabilidades é clara: a lógica clínica e de inferência é inteiramente controlada pelo motor de regras e pela base de conhecimento do P1; o LLM é confinado à dimensão linguística da interação, com filtros que impedem que alucinações comprometam a segurança do resultado.
+
+Relativamente à versão inicial do P2, foram introduzidas quatro melhorias ao orquestrador de diálogo: intercepção de pedidos de explicação com resposta clínica contextual (reutilizando `explicacao/2` da base Prolog); reconhecimento de intensificadores como afirmações sem chamada adicional ao LLM; early-exit absoluto quando uma regra de emergência está completamente satisfeita; e persistência automática de triagens em `triagens.csv` independentemente da disponibilidade do servidor Prolog. Foi também corrigido um bug de gestão de estado em que um sintoma era marcado como "já perguntado" no momento da seleção, em vez de apenas após resposta clara do utilizador.
 
 A principal limitação identificada é a capacidade do modelo Llama 3.2:3b em tarefas de extração estruturada, o que levou à decisão de o excluir do pipeline de deteção de sintomas em favor de um sistema determinístico baseado em keywords. Esta troca entre generalidade e fiabilidade é uma das tensões centrais na utilização de LLMs de dimensão reduzida em domínios de alto risco como a triagem clínica.
