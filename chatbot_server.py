@@ -185,6 +185,17 @@ NIVEIS_INFO   = _extrair_niveis(_kb_texto)   # id → (nome_display, recomendaca
 # Mapeamento inverso: nome display (maiúsculas) → id Prolog
 _NIVEL_NOME_PARA_ID = {nome.upper(): id_ for id_, (nome, _) in NIVEIS_INFO.items()}
 
+EXPLICACOES_SINT = _extrair_mapa(_kb_texto, "explicacao")
+
+# Ordem de colunas do triagens.csv (gerado pelo P1/P2)
+CSV_SINTOMAS = [
+    "sem_respiracao","sem_pulso","resp_dificuldade","hemorragia","inconsciente",
+    "convulsoes","dor_peito","dor_irradia","fala_dificil","fraqueza_lado",
+    "febre_alta","confusao","dor_abd","febre_bebe","tosse_febre","dor_persiste",
+    "vomitos","diarreia","dor_garganta","constipacao","dor_leve","febre_baixa","mal_estar",
+]
+CSV_PATH = os.path.join(_DIR, "triagens.csv")
+
 def _corrigir_acentos(texto: str) -> str:
     """Restaura acentos em texto vindo do Prolog (ficheiros sem UTF-8 acentuado)."""
     substituicoes = [
@@ -198,6 +209,19 @@ def _corrigir_acentos(texto: str) -> str:
     for original, corrigido in substituicoes:
         texto = texto.replace(original, corrigido)
     return texto
+
+
+def salvar_triagem_csv(session: dict, resultado: dict) -> None:
+    """Grava a triagem concluída em triagens.csv (append). Funciona mesmo em modo fallback Python."""
+    nivel_id = resultado.get("nivel_id", "sem_sintomas_alarme")
+    valores  = ["1" if session["sintomas"].get(s) == "sim" else "0" for s in CSV_SINTOMAS]
+    linha    = ",".join(valores) + "," + nivel_id + "\n"
+    try:
+        with open(CSV_PATH, "a", encoding="utf-8") as f:
+            f.write(linha)
+        print(f"[CSV] Triagem gravada: {nivel_id}")
+    except Exception as e:
+        print(f"[CSV] Erro ao gravar triagem: {e}")
 
 
 # ── RAG ENGINE ───────────────────────────────────────────────────────────────
@@ -458,10 +482,15 @@ def e_resposta_simples(text: str) -> Optional[bool]:
     t = re.sub(r"\s+", " ", t).strip()
     SIM = {"sim", "s", "é", "e", "tenho", "sinto", "sinto-me", "yes", "yep", "yha",
            "ya", "yeah", "claro", "também", "tambem", "efetivamente", "efectivamente",
-           "pois", "exactamente", "exatamente", "afirmativo", "com certeza", "certamente"}
+           "pois", "exactamente", "exatamente", "afirmativo", "com certeza", "certamente",
+           # intensificadores e afirmações indiretas — mapeados deterministicamente, sem LLM
+           "muito", "bastante", "claramente", "definitivamente", "totalmente",
+           "absolutamente", "obviamente", "óbvio", "obvio", "sem dúvida", "sem duvida",
+           "tenho sim", "claro que sim"}
     NAO = {"não", "nao", "n", "no", "nunca", "nem", "negativo",
            "não tenho", "nao tenho", "não sinto", "nao sinto",
-           "não tive", "nao tive", "sem"}
+           "não tive", "nao tive", "sem", "jamais",
+           "de jeito nenhum", "de modo nenhum", "de maneira nenhuma"}
     if t in SIM:
         return True
     if t in NAO:
@@ -476,7 +505,8 @@ def e_resposta_simples(text: str) -> Optional[bool]:
         "algumas vezes", "raramente", "ocasionalmente",
     }
     # Começa por palavra clara (com ou sem vírgula a seguir)
-    for w in ["sim ", "claro ", "tenho ", "sinto ", "também ", "tambem "]:
+    for w in ["sim ", "claro ", "tenho ", "sinto ", "também ", "tambem ",
+              "definitivamente ", "totalmente ", "absolutamente ", "claramente "]:
         if t.startswith(w):
             if any(q in t for q in _INVALIDA_SIM):
                 return None   # resposta qualificada — tratar como incerta
@@ -501,6 +531,27 @@ def e_resposta_incerta(text: str) -> bool:
     """Verdade se a mensagem expressa incerteza (talvez/não sei/pode ser)."""
     t = text.lower().strip()
     return any(p in t for p in _INCERTO_PALAVRAS) and e_resposta_simples(text) is None
+
+
+_PORQUE_PALAVRAS = {
+    "porquê", "por quê", "por que", "porque me pergunta", "para que precisa",
+    "para que quer saber", "pra que", "que tem a ver", "explica",
+    "o que significa", "não entendo", "nao entendo",
+    "não percebo", "nao percebo", "por que razão", "por que motivo",
+}
+
+def e_intencao_porque(text: str) -> bool:
+    """Verdade se a mensagem é um pedido de explicação/justificação clínica."""
+    t = text.lower().strip()
+    return any(p in t for p in _PORQUE_PALAVRAS)
+
+
+def _explicacao_sintoma(sint: str) -> str:
+    """Devolve a explicação clínica do sintoma a partir da base de conhecimento."""
+    return EXPLICACOES_SINT.get(
+        sint,
+        "Este sintoma é avaliado no nosso modelo clínico para afastar condições potencialmente graves.",
+    )
 
 
 def calcular_proximo_sintoma(sintomas: dict, perguntas_feitas: Optional[set] = None) -> Optional[str]:
@@ -982,12 +1033,24 @@ async def chat_message(body: MsgBody):
             "resultado_prolog": session["resultado_prolog"],
         }
 
+    # 0. Porquê/pedido de explicação — responder com justificação clínica e repetir pergunta
+    ultima_perg = session.get("ultima_pergunta")
+    if e_intencao_porque(user_msg) and ultima_perg:
+        expl     = _explicacao_sintoma(ultima_perg)
+        pergunta = DESCRICAO_PERGUNTA.get(ultima_perg, "Pode responder à pergunta anterior?")
+        resposta = f"Peço esta informação porque: {expl}\n\n{pergunta}"
+        session["history"].append({"role": "assistant", "content": resposta})
+        sintomas_json = [{"id": s, "nome": SINTOMAS_PT.get(s, s), "presente": v == "sim"}
+                         for s, v in session["sintomas"].items()]
+        return {"message": resposta, "sintomas": sintomas_json,
+                "triagem_feita": False, "resultado_prolog": None}
+
     # 1. Se a mensagem é um sim/não simples à última pergunta, mapeá-la directamente
     resp_simples = e_resposta_simples(user_msg)
-    ultima_perg  = session.get("ultima_pergunta")
     if resp_simples is not None and ultima_perg:
         if ultima_perg not in session["sintomas"]:
             session["sintomas"][ultima_perg] = "sim" if resp_simples else "nao"
+        session["perguntas_feitas"].add(ultima_perg)  # marcar como feita só após resposta clara
     elif e_resposta_incerta(user_msg) and ultima_perg:
         # Resposta incerta ("talvez", "não sei") — não regista o sintoma,
         # mas marca como perguntado para não repetir a mesma questão
@@ -1012,31 +1075,32 @@ async def chat_message(body: MsgBody):
     # 2b. Aplicar exclusões mútuas (ex: febre_alta exclui febre_baixa)
     aplicar_exclusoes(session["sintomas"])
 
-    # 3. Motor de regras: calcular a próxima pergunta mais informativa
-    # Passa perguntas_feitas para evitar repetir perguntas sem resposta clara
-    prox_sint = calcular_proximo_sintoma(session["sintomas"], session["perguntas_feitas"])
-
-    # 4. Decidir se é altura de fazer triagem formal MYCIN
-    has_emergency = any(session["sintomas"].get(s) == "sim" for s in SINTOMAS_EMERGENCIA)
-    n_known       = sum(1 for v in session["sintomas"].values() if v in ("sim", "nao"))
-    # Sintomas que justificam triagem antecipada
-    SINTOMAS_URGENTES = {"febre_alta", "febre_bebe", "dor_peito", "dor_abd",
-                         "fala_dificil", "fraqueza_lado", "confusao", "dor_persiste",
-                         "reacao_alergica_grave", "dor_cabeca_subita", "rigidez_nuca"}
-    has_urgente = any(session["sintomas"].get(s) == "sim" for s in SINTOMAS_URGENTES)
-    # Urgentes: bloquear triagem se uma regra de emergência ainda tem premissas desconhecidas
-    # (ex: febre_alta+dor_abd confirmados → r_em6 precisa de confusao antes de concluir)
-    # O catch-all dispara às 6 trocas para não deixar a conversa interminável
-    emerg_pendente   = tem_regra_emergencia_pendente(session["sintomas"])
+    # 3+4. Early-exit absoluto para emergências completas; caso contrário, fluxo normal
     emerg_satisfeita = tem_regra_emergencia_satisfeita(session["sintomas"])
-    deve_triagem  = (
-        (has_emergency or emerg_satisfeita)   # emergência individual OU regra completa
-        or (session["n_trocas"] >= 6 and n_known >= 4)
-        or (not emerg_pendente and (
-            (has_urgente and n_known >= 5 and session["n_trocas"] >= 3)
-            or (prox_sint is None and n_known >= 3 and session["n_trocas"] >= 3)
-        ))
-    ) and not session["triagem_feita"]
+    if emerg_satisfeita and not session["triagem_feita"]:
+        # Regra de emergência 100% satisfeita — triagem imediata, sem mais perguntas
+        prox_sint    = None
+        deve_triagem = True
+    else:
+        # 3. Motor de regras: calcular a próxima pergunta mais informativa
+        prox_sint = calcular_proximo_sintoma(session["sintomas"], session["perguntas_feitas"])
+
+        # 4. Decidir se é altura de fazer triagem formal MYCIN
+        has_emergency = any(session["sintomas"].get(s) == "sim" for s in SINTOMAS_EMERGENCIA)
+        n_known       = sum(1 for v in session["sintomas"].values() if v in ("sim", "nao"))
+        SINTOMAS_URGENTES = {"febre_alta", "febre_bebe", "dor_peito", "dor_abd",
+                             "fala_dificil", "fraqueza_lado", "confusao", "dor_persiste",
+                             "reacao_alergica_grave", "dor_cabeca_subita", "rigidez_nuca"}
+        has_urgente      = any(session["sintomas"].get(s) == "sim" for s in SINTOMAS_URGENTES)
+        emerg_pendente   = tem_regra_emergencia_pendente(session["sintomas"])
+        deve_triagem     = (
+            (has_emergency or emerg_satisfeita)
+            or (session["n_trocas"] >= 6 and n_known >= 4)
+            or (not emerg_pendente and (
+                (has_urgente and n_known >= 5 and session["n_trocas"] >= 3)
+                or (prox_sint is None and n_known >= 3 and session["n_trocas"] >= 3)
+            ))
+        ) and not session["triagem_feita"]
 
     resultado_prolog = None
     if deve_triagem:
@@ -1073,11 +1137,12 @@ async def chat_message(body: MsgBody):
             resultado_prolog = resultado_python if idx_python < idx_prolog else resultado_mycin
 
         session["resultado_prolog"] = resultado_prolog
+        salvar_triagem_csv(session, resultado_prolog)
 
     # 5. Registar a próxima pergunta na sessão (para mapear sim/não no próximo turno)
+    # perguntas_feitas é marcado no turno seguinte, após resposta clara do utilizador
     if prox_sint and not resultado_prolog:
         session["ultima_pergunta"] = prox_sint
-        session["perguntas_feitas"].add(prox_sint)
     else:
         session["ultima_pergunta"] = None
 
