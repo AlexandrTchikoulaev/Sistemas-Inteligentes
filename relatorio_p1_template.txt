@@ -1,0 +1,3116 @@
+ºs
+
+
+
+Universidade do Minho
+Escola de Ciências
+
+
+
+
+Projeto 2
+Sistemas Inteligentes de Apoio à Decisão
+
+Alexandr Tchikoulaev A103625
+André Pinto A106825
+João Alves A102394
+Rui Silva A106831
+
+
+
+
+Trabalho efetuado sob a orientação de
+André Agostinho Granja Silva Oliveira
+Manuel Filipe Vieira Torres Santos
+
+
+
+
+
+
+
+
+
+
+
+
+
+Maio 2026
+
+
+
+
+Índice
+
+1. Introdução	1
+1.1. Enquadramento	1
+1.2. Objetivos	1
+2. Execução do Projeto	2
+2.1. Diagrama de Gantt	2
+2.2. Distribuição de Trabalho	2
+3. Tarefa A	7
+3.1. Enquadramento e Abordagem	7
+3.2. Aquisição e Representação do Conhecimento	7
+3.3. Motor de Inferência	8
+3.4. Interface com o Utilizador	9
+3.5. Integração e Funcionamento Global	9
+4. Tarefa B	10
+Visão Geral do Pipeline	10
+1. Síntese de Dados a partir de Conhecimento Especialista (gerar_dataset.py)	11
+2. A Base de Dados de Aprendizagem (triagens.csv)	12
+3. Persistência de Sessões Clínicas guardar_triagem.pl	13
+4.Pipeline de Aprendizagem Automática e Exportação  (treinar_exportar.py)	14
+5. Base de Conhecimento Gerada base_conhecimento_b	16
+6.Visualização	16
+Integração com o Sistema da Parte A	18
+5. Tarefas Extra (P1MAX)	18
+5.1. Sistema de inferência considerando incerteza	18
+5.2. Sistema de inferência considerando explicação	20
+6. Conclusões	21
+6.1. Síntese	21
+6.2. Discussão	21
+6.3. Funcionamento do Trabalho em Grupo	22
+Anexo A	23
+Anexo B	93
+Bibliografia	94
+
+
+
+
+Introdução
+
+1.1. Enquadramento
+
+Este projeto foi desenvolvido pelo Grupo 4 (Alexandr Tchikoulaev, André Pinto, João Alves e Rui Silva) no âmbito da unidade curricular de Sistemas Inteligentes de Apoio à Decisão da Licenciatura em Ciência de Dados na Universidade do Minho.
+O trabalho consiste no desenvolvimento de um Sistema Baseado em Conhecimento (SBC) [5] aplicado à triagem de doentes, inspirado nos protocolos do serviço SNS24 [3]. O sistema utiliza a linguagem Prolog [6] para representar regras clínicas e um motor de inferência para apoiar a decisão sobre o nível de urgência dos utentes.
+A solução integra a aquisição manual de conhecimento perito (Tarefa A) com técnicas de aprendizagem automática para a extração de novas regras (Tarefa B), resultando num sistema híbrido capaz de lidar com incerteza e evoluir através de dados sintetizados e reais.
+1.2. Objetivos
+
+O principal objetivo deste projeto é desenvolver um sistema de triagem médica simplificado que permita classificar o nível de urgência de um doente com base nos sintomas apresentados.
+De forma mais específica, pretende-se:
+Representar conhecimento clínico sob a forma de regras de produção em Prolog
+Implementar um sistema de inferência capaz de tomar decisões
+Criar uma interface simples para interação com o utilizador
+Produzir uma recomendação final de triagem (emergência, urgente, não urgente, etc.)
+
+Execução do Projeto
+2.1. Diagrama de Gantt
+
+figura 1: Diagrama de Gantt
+2.2. Distribuição de Trabalho
+A execução deste projeto foi planeada para transformar um desafio clínico complexo num sistema funcional e inteligente num curto espaço de tempo. Para maximizar a eficiência do grupo, adotamos uma estratégia de divisão por competências: cada elemento assumiu a responsabilidade principal pelas áreas onde possuía maior à-vontade técnico ou clínico.  
+Esta abordagem permitiu acelerar o desenvolvimento, garantindo que as componentes de inferência, interface e aprendizagem automática avançassem em paralelo. Embora cada membro tenha liderado uma frente específica, o sucesso do sistema dependeu de uma colaboração constante para assegurar a integração perfeita entre os módulos de Prolog, Python e a interface Web.
+
+2.2.1. Alexandr Tchikoulaev
+
+O meu contributo centrou-se no desenvolvimento da Parte B do projeto, introduzindo aprendizagem automática no sistema e permitindo a sua evolução com base em dados. O objetivo foi complementar as regras manuais da Parte A com conhecimento aprendido automaticamente.
+Implementei a pipeline completa de dados, desde a geração de exemplos sintéticos a partir das regras clínicas até ao treino de modelos capazes de extrair padrões e convertê-los em regras Prolog. Desenvolvi ainda um mecanismo de otimização da interação com o utilizador, baseado na ordenação de sintomas por importância (Random Forest), e um processo de aprendizagem contínua através da persistência das triagens realizadas.
+
+Código desenvolvido:
+gerar_dataset.py - geração de dados sintéticos com ruído controlado - triagens.csv
+treinar_exportar.py - treino de modelos e exportação para base_conhecimento_b.pl
+guardar_triagem.pl - persistência das sessões para aprendizagem contínua
+
+
+
+
+2.2.2. André Pinto
+A minha contribuição centrou-se na definição e formalização da “inteligência clínica” do sistema, garantindo que a base de conhecimento refletisse os princípios de triagem utilizados no serviço SNS24. Este trabalho envolveu a tradução de conhecimento clínico informal em regras de produção formais ao utilizar o Prolog.
+Contribuição Efetiva: 
+Fui responsável pela análise dos sintomas relevantes para triagem, bem como a sua organização de forma bem estruturada, distinguindo os 5 níveis de gravidade e agrupar os sinais clínicos de acordo com padrões típicos de decisão médica. 
+Esta estruturação permitiu construir um conjunto consistente de regras que suportam a inferência automática do nível de encaminhamento.
+Para além de definir as regras, desenvolvi o sistema de explicação associado à base de conhecimento.
+Em particular, eu implementei mecanismos que permitem ao sistema justificar as decisões tomadas, associar cada regra a uma explicação clínica.
+Esta funcionalidade suporta a transparência do sistema, que permite ao utilizador compreender o raciocínio por detrás de cada resultado.
+Código Desenvolvido:
+base_conhecimento_a.pl: Escrita integral de 30 regras clínicas (regra/4) e do dicionário de sintomas (sintoma/2).
+Implementação do predicado explicacao_regra/2 para rastreabilidade.
+Definição da estrutura explicacao/2 para apoiar a funcionalidade "Porquê?" na interface.
+
+2.2.3. João Alves
+A minha participação centrou-se na construção da camada de comunicação entre o motor de inferência e o utilizador final, responsabilidade que abrangeu tanto a interface inicial de linha de comandos como a posterior infraestrutura web que viria a substituí-la.
+Numa primeira fase, desenvolvi o ficheiro interface.pl, que implementa o ciclo de interacção por terminal através do predicado perguntar/1. Este mecanismo apresenta ao utilizador a descrição textual de cada sintoma e suporta quatro opções de resposta: confirmação (s), negação (n), desconhecimento (t) e pedido de justificação clínica (p). As duas primeiras solicitam adicionalmente um grau de certeza numérico, convertido internamente num Factor de Certeza e persistido em facto/2. Respostas inválidas são rejeitadas e a pergunta repetida, garantindo que nenhum sintoma avança sem uma resposta reconhecida. A opção p recorre ao predicado explicacao/2 para apresentar a justificação clínica associada antes de retomar o questionário.
+Com a evolução do projecto para uma arquitectura web, implementei o server.pl, que expõe o motor Prolog através de um servidor HTTP multithreaded na porta 8080, com três endpoints REST: /api/start, que inicializa a sessão e devolve a primeira pergunta; /api/answer, que regista a resposta do utilizador, recalcula os scores e determina se a triagem deve continuar ou concluir; e /api/validate, que persiste a sessão no ficheiro CSV para aprendizagem contínua. O estado da sessão é gerido através do predicado dinâmico session_sintomas/1, com acesso protegido por mutex para garantir segurança em contexto concorrente. Desenvolvi igualmente o frontend em interface.html, incluindo as barras de progresso dinâmicas com scores em tempo real por nível de triagem e a apresentação estruturada do resultado final com justificação clínica.
+
+
+
+2.2.4. Rui Silva
+
+A minha participação no projecto centrou-se no desenvolvimento do motor de inferência, a componente nuclear do sistema, responsável por processar os dados recolhidos ao utilizador e transformá-los numa decisão clínica probabilística fundamentada.
+Numa primeira abordagem, concebi uma arquitectura funcional no ficheiro sistema_inferencia.pl, estruturada em torno do predicado verifica/3. Este mecanismo percorre as regras clínicas por encadeamento regressivo (backward chaining), interrogando a interface sempre que um sintoma necessário ainda não tivesse sido avaliado. Nesta mesma fase, assumi a responsabilidade pelo ficheiro base_dados.pl, garantindo a gestão dinâmica dos factos registados - através do predicado facto/2 - e assegurando a limpeza integral da memória de trabalho entre sessões de triagem distintas.
+À medida que os requisitos do sistema evoluíram no sentido da modelação explícita da incerteza, procedi à reformulação completa do motor segundo o paradigma MYCIN de Factores de Certeza. Este processo exigiu a formalização matemática do modelo em Prolog e resultou na implementação dos seguintes predicados:
+cf_premissa/2 e avaliar_premissas/3 - responsáveis pela avaliação individual de cada condição de uma regra e pela propagação do CF combinado por operador mínimo (semântica AND). Merecem destaque o tratamento rigoroso das premissas negadas via nao/1, cuja satisfação requer a negação explícita e verificada do respectivo sintoma, e a adopção do limiar MYCIN de 0.20, abaixo do qual nenhuma regra é disparada, assegurando um comportamento clínico conservador perante ausência de informação.
+combinar_cfs/2 - implementa a fórmula cumulativa MYCIN nos três ramos canónicos: combinação de evidências positivas, negativas e conflituantes, permitindo que múltiplas regras contribuam de forma coerente para um mesmo nível de triagem.
+calcular_scores_finais/2 - agrega a totalidade da evidência disponível e produz uma pontuação final por nível, integrando de forma transparente as regras provenientes tanto do conhecimento codificado manualmente como das regras geradas automaticamente por aprendizagem automática.
+atingiu_limiar_nivel/1 - implementa a lógica de paragem antecipada: quando a confiança num nível ultrapassa 80%, o processo de inferência é interrompido, optimizando o tempo de resposta sem comprometer a qualidade do diagnóstico.
+mostrar_resultado/2 e mostrar_justificacao_final/1 - apresentam o diagnóstico final ao utilizador, explicitando as regras activadas, os respectivos pesos e integrando as justificações clínicas associadas a cada regra.
+
+
+
+Tarefa A
+Enquadramento e Abordagem
+A Parte A deste projecto materializa o desenvolvimento de um Sistema Inteligente de Apoio à Decisão (SISD) dedicado à triagem clínica, com o propósito de encaminhar utentes para o nível de cuidados adequado com base na sintomatologia reportada. Este desafio assume uma relevância inequívoca no contexto actual do Serviço Nacional de Saúde: uma triagem eficiente reduz a pressão sobre os serviços de urgência, orienta o utilizador para a resposta clínica proporcional à sua condição e, nos cenários de maior gravidade, pode revelar-se determinante para o desfecho final.
+A escolha da linguagem Prolog como plataforma de implementação não foi arbitrária. O raciocínio clínico subjacente à triagem estrutura-se naturalmente em proposições condicionais - se o doente manifesta estes sintomas, então o nível de urgência é este - que se traduzem de forma directa e auditável em cláusulas lógicas de produção. Esta correspondência entre o domínio do problema e o paradigma declarativo confere ao sistema uma transparência que dificilmente seria alcançada com abordagens imperativas: o conhecimento médico permanece legível, verificável e independente do motor que o processa. A separação explícita entre base de conhecimento e sistema de inferência garante, adicionalmente, a expansibilidade e a manutenibilidade do sistema ao longo do seu ciclo de vida.
+No que respeita à aquisição de conhecimento, o processo foi conduzido manualmente a partir dos protocolos e fluxogramas de sintomas Altitude do serviço SNS24 [3]. Estas fontes serviram de referencial para a formalização da taxonomia de sintomas clínicos considerados e para a definição da escala de triagem adoptada, composta por cinco níveis ordenados por grau de gravidade crescente: sem sintomas de alarme, pouco urgente, urgente, muito urgente e emergência.
+ Aquisição e Representação do Conhecimento
+A aquisição de conhecimento para o sistema de triagem foi realizada de forma manual com base na análise de protocolos clínicos inspirados no serviço SNS24, bem como em princípios gerais de triagem médica. O objetivo foi identificar os sintomas mais relevantes e estabelecer relações entre as combinações entre os sintomas e os níveis de prioridade de encaminhamento.
+Os sintomas foram selecionados de forma a cobrir vários níveis de gravidade, desde situações críticas (por exemplo ausência de respiração ou pulso) até quadros ligeiros (como constipações ou mal-estar geral). Estes sintomas foram organizados de forma bem estruturada e uniforme através do predicado sintoma/2, que associa cada identificador lógico a uma descrição textual pelo utilizador.
+A representação do conhecimento foi realizada com regras de produção através do predicado regra/4 com a seguinte estrutura: identificador da regra, conjunto de condições (sintomas), conclusão (nível de triagem) e fator de certeza associado. Esta abordagem permite modelar o raciocínio clínico, aproximando-se da lógica utilizada em sistemas periciais.
+Foram definidos vários níveis de triagem, representados pelo predicado nivel/3 que corresponde a diferentes dos vários graus de urgência. Cada regra associa um conjunto de sintomas a um destes níveis, que permite ao sistema escolher o encaminhamento mais adequado de acordo com as respostas do utilizador.
+Além disso, foram incluídas regras com múltiplos sintomas e condições negativas (negação), o que permite representar cenários clínicos mais complexos e aumentar a precisão da triagem. A cada regra foi também associado um fator de certeza, que demonstra a relevância clínica e permite lidar com situações de incerteza.
+Por fim, foi definida uma ordem de questionamento dos sintomas, através do predicado ordem_sintomas/1, de forma a priorizar sintomas mais críticos e tornar o processo de interação mais eficiente e realista.
+Motor de Inferência
+O motor de inferência constitui o núcleo computacional do sistema, sendo a componente responsável por articular as respostas do utilizador com as regras da base de conhecimento e produzir, a partir dessa articulação, uma decisão de triagem fundamentada.
+Na sua concepção inicial, o motor operava segundo um mecanismo de encadeamento regressivo (backward chaining) [2]: partindo de uma hipótese de diagnóstico, o sistema procurava verificar, de forma recursiva, se as premissas necessárias à sua confirmação se encontravam satisfeitas. Esta lógica estava centralizada no predicado verifica/3, que consultava sistematicamente a memória de trabalho antes de interpelar o utilizador, evitando assim a repetição de perguntas já respondidas. Sempre que um sintoma permanecia desconhecido, o predicado delega na interface a recolha da informação, mantendo o fluxo de inferência ativo até à resolução da hipótese em avaliação. As respostas obtidas eram persistidas dinamicamente através do predicado facto/2, definido no ficheiro base_dados.pl, sendo a memória de trabalho integralmente limpa pelo predicado limpar_base_dados/0 no início de cada nova sessão de triagem, garantindo o isolamento entre consultas distintas.
+Esta arquitectura, ainda que funcional, assentava num modelo estritamente binário, incapaz de representar graus de certeza ou de combinar evidências parciais provenientes de múltiplas regras. A necessidade de superar estas limitações conduziu à reformulação integral do motor, adoptando o modelo de Factores de Certeza do paradigma MYCIN [1] como formalismo de raciocínio sob incerteza.
+O fluxo de execução do motor revisto inicia-se em diagnostico/1, que determina a ordem de questionário através de obter_ordem_sintomas/1 - mecanismo que privilegia automaticamente a ordenação gerada por aprendizagem automática na Parte B, recorrendo à lista manual como salvaguarda. A interacção com o utilizador é gerida sequencialmente pelo predicado perguntar_sintomas/4, que, após cada resposta, verifica através de atingiu_limiar_nivel/1 se a confiança num nível de triagem já é suficientemente elevada para antecipar a conclusão do diagnóstico, sem necessidade de esgotar o questionário completo. A avaliação das regras, a propagação dos factores de certeza e a agregação final da evidência são conduzidas pelos predicados avaliar_regra/3, combinar_cfs/2 e calcular_scores_finais/2, que em conjunto produzem uma pontuação por nível de triagem a partir da qual o sistema selecciona o diagnóstico de maior confiança.
+Interface com o Utilizador
+A interface do sistema gere a camada de comunicação entre o motor de inferência e o utilizador, traduzindo o ciclo de perguntas em interacções legíveis e tratando todas as variantes de resposta possíveis.
+O predicado central perguntar/1 recupera a descrição textual do sintoma em avaliação e apresenta-a ao utilizador com quatro opções disponíveis: confirmação da presença do sintoma (s), negação (n), desconhecimento (t) e pedido de justificação (p). As duas primeiras opções solicitam adicionalmente um grau de certeza numérico de 0 a 100, que é convertido diretamente num Factor de Certeza e persistido em facto/2 - respostas afirmativas geram CFs positivos, respostas negativas geram CFs negativos. A opção t regista CF = 0.0, sinalizando ausência de informação sem penalizar nenhuma regra. Respostas fora do conjunto válido são rejeitadas e a pergunta é repetida, garantindo que nenhum sintoma avança sem uma resposta reconhecida. A opção p interrompe temporariamente o fluxo, apresenta a justificação clínica associada ao sintoma através de explicacao/2 e retoma a pergunta de seguida.
+Esta interface foi a solução adoptada na versão inicial do sistema, orientada para interação via linha de comandos. Com o desenvolvimento da Parte B, o sistema evoluiu para uma arquitectura web: o server.pl expõe os mesmos mecanismos de triagem através de uma API REST, e a interface.html substitui o terminal por uma experiência interactiva no browser, mantendo a lógica de recolha de certeza e justificação que caracterizava a versão original.
+Integração e Funcionamento Global
+A arquitectura do sistema assenta na separação clara de responsabilidades entre quatro módulos, cada um com um papel técnico e funcional bem delimitado, que comunicam de forma encadeada ao longo do ciclo de triagem.
+O ficheiro base_conhecimento.pl constitui o repositório de inteligência clínica do sistema: formaliza a taxonomia de sintomas, as regras de produção no formato regra/4 com os respectivos Factores de Certeza, e o dicionário de justificações clínicas associadas a cada regra. É a única componente que pressupõe intervenção especializada para manutenção ou extensão do domínio de conhecimento, permanecendo completamente independente da lógica de inferência. O módulo base_dados.pl desempenha o papel de memória de trabalho da sessão corrente: regista dinamicamente as evidências recolhidas através do predicado facto/2 e assegura a limpeza integral desse estado entre triagens distintas, garantindo o isolamento entre consultas. O sistema_inferencia.pl orquestra o raciocínio sobre esse estado, aplicando as regras clínicas e produzindo os scores de confiança finais. A interface.pl, por sua vez, gere a camada de interação com o utilizador, tratando a apresentação de questões, a validação de respostas e o suporte à funcionalidade de rastreabilidade que permite ao utilizador questionar o sistema sobre o motivo de cada pergunta.
+
+figura 2: Pipeline de Execução
+O ciclo de execução tem início no predicado diagnostico/1, que determina a ordem de questionário e desencadeia a interação sequencial. O motor percorre a lista de sintomas, delegando na interface a recolha de dados que são imediatamente persistidos na memória de trabalho. Após cada resposta, o sistema recalcula os scores parciais por nível de triagem; caso a confiança num nível ultrapasse o limite estabelecido, o diagnóstico é apresentado de imediato, sem necessidade de esgotar o questionário. Caso contrário, a triagem prossegue até ao último sintoma, culminando sempre na apresentação do nível recomendado acompanhado da respectiva fundamentação clínica.A arquitectura do sistema assenta na separação clara de responsabilidades entre quatro módulos, cada um com um papel técnico e funcional bem delimitado, que comunicam de forma encadeada ao longo do ciclo de triagem.
+Tarefa B
+Visão Geral do Pipeline
+A Parte B do projeto adiciona aprendizagem automática ao sistema desenvolvido na Parte A. O objetivo não é substituir as regras criadas manualmente em Prolog, mas sim complementá-las, permitindo ao sistema aprender novos padrões a partir de dados e melhorar o seu desempenho ao longo do tempo.
+Para isso, é criado um conjunto de dados com base nas regras já existentes, simulando diferentes cenários de triagem. Esses dados são usados para treinar modelos de machine learning, que permitem identificar padrões relevantes e gerar novas regras de decisão. Essas regras são depois convertidas para o mesmo formato das regras manuais, garantindo a sua integração direta no sistema.
+Além disso, o sistema passa a guardar as triagens realizadas pelos utilizadores. Com o tempo, estes dados reais são adicionados ao conjunto de treino, permitindo que o modelo seja atualizado e se torne progressivamente mais ajustado à realidade. Desta forma, o sistema evolui continuamente com a experiência acumulada.
+
+figura 3: Pipeline com aprendizagem automática
+
+Em síntese: a Parte A fornece o conhecimento inicial na forma de regras manuais; a Parte B transforma esse conhecimento em dados, aplica aprendizagem automática, e devolve o conhecimento extraído de volta ao mesmo sistema em formato compatível; cada sessão real validada alimenta o CSV e fecha o ciclo, permitindo ao sistema melhorar continuamente com a experiência acumulada.
+1. Síntese de Dados a partir de Conhecimento Especialista (gerar_dataset.py)
+Este script implementa uma estratégia de knowledge-to-data compilation: em vez de recolher dados clínicos reais (o que exigiria autorizações éticas e acesso a sistemas hospitalares), sintetiza exemplos a partir das regras de produção já formalizadas na Parte A. Esta abordagem é coerente com o enquadramento do projeto, onde o conhecimento perito já foi capturado manualmente - o objetivo não é substituí-lo, mas sim torná-lo legível por algoritmos de aprendizagem.
+Parsing das Regras da Parte A
+A função parse_rules lê o ficheiro base_conhecimento_a.pl com uma expressão regular que captura a estrutura do predicado regra/4: regra(ID, se([premissas]), entao(nivel), CF). O padrão inclui o prefixo -? antes dos dígitos do CF, permitindo capturar tanto valores positivos como negativos (contra-evidências MYCIN).
+Para cada regra extraída, o parser separa as premissas positivas (sintomas presentes, identificadores simples como febre_alta) das premissas negativas (sintomas ausentes, envolvidos no functor nao/1 como nao(vomitos)). O resultado é uma lista de dicionários Python, cada um contendo o ID da regra, os sintomas positivos, os sintomas negados, o nível de triagem e o valor de CF. Antes da geração do dataset, as regras com CF negativo são filtradas - estas representam contra-evidências que reduzem a confiança num nível e não devem originar exemplos de treino positivos.
+Geração de Exemplos por Regra
+Para cada regra, o número de exemplos gerados é proporcional ao valor de CF da regra: n = max(5, round(CF × 15))
+Assim, uma regra com CF = 0.95 (como por exemplo r_em: regra(r_em1, se([sem_respiracao]), entao(emergencia), 0.95)) gera 14 exemplos, enquanto uma regra com CF = 0.40 (como r_ur5: regra(r_em5, se([inconsciente]), entao(emergencia), 0.85) gera apenas 6 exemplos. Esta proporcionalidade tem dois efeitos desejáveis: as regras de maior confiança têm mais representação no espaço de treino, e o modelo de ML aprenderá a atribuir maior peso às associações sintoma-nível que o especialista considerou mais fiáveis.
+Cada exemplo é gerado pela função generate_example, que:
+Inicializa todos os 23 sintomas a 0;
+Define como 1 todos os sintomas presentes na premissa positiva da regra;
+Mantém a 0 todos os sintomas explicitamente negados na premissa;
+Para os sintomas restantes (aqueles não mencionados na regra), aplica ruído estocástico: com probabilidade 5%, um sintoma irrelevante é colocado a 1.
+O ruído estocástico (NOISE_PROB = 0.05) é essencial para a qualidade do modelo. Sem ele, os exemplos de cada regra seriam perfeitamente idênticos entre si (idênticos exceto no rótulo), e o modelo aprenderia correspondências exatas demasiado rígidas. O ruído simula a variabilidade clínica real - um doente em emergência pode apresentar adicionalmente um sintoma de menor gravidade como mal_estar - e força o modelo a aprender padrões robustos baseados nos sintomas discriminantes.
+Exemplos da Classe "Sem Alarme"
+Para além dos exemplos gerados por regra, o script adiciona 25 exemplos adicionais especificamente para a classe sem_sintomas_alarme. Estes exemplos são gerados com probabilidades independentes para os três sintomas benignos mais comuns: mal_estar (40%), constipacao (30%) e febre_baixa (20%). Este tratamento especial justifica-se porque a classe "Sem Alarme" é conceitualmente definida pela ausência de sintomas alarmantes, não pela presença de um padrão específico - os exemplos são intencionalmente esparsos e variados.
+Após gerar todos os exemplos, o conjunto é baralhado aleatoriamente (com semente fixa seed=42 para reprodutibilidade) e escrito no ficheiro triagens.csv.
+
+2. A Base de Dados de Aprendizagem (triagens.csv)
+O ficheiro triagens.csv é a base de dados central de todo o pipeline de aprendizagem automática. Tem um formato tabular simples: cada linha representa uma triagem completa, com 23 colunas binárias (uma por sintoma) e uma coluna de rótulo nivel com cinco valores possíveis - emergencia, muito_urgente, urgente, pouco_urgente, sem_sintomas_alarme.
+Na sua versão gerada inicialmente pelo script gerar_dataset.py, o ficheiro contém 365 exemplos. A distribuição de exemplos entre classes não é uniforme: reflete a assimetria das regras da Parte A, onde as classes mais graves (emergência, muito urgente) têm mais regras e com CFs mais elevados, gerando proporcionalmente mais exemplos sintéticos. Esta assimetria é parcialmente compensada pelo parâmetro class_weight='balanced' nos modelos scikit-learn [4], que pondera cada classe inversamente proporcional à sua frequência.
+À medida que utilizadores interagem com o sistema e validam triagens, o predicado guardar_triagem.pl acrescenta novas linhas reais ao ficheiro, expandindo gradualmente a base de dados com dados não sintéticos. Cada nova linha representa um caso clínico real observado durante uma sessão, o que permite ao sistema melhorar as suas regras ML com experiência acumulada.
+3. Persistência de Sessões Clínicas guardar_triagem.pl
+Este módulo Prolog constitui o ponto de ligação entre o motor de inferência em tempo de execução e a base de dados de aprendizagem. A sua função é serializar o estado interno de uma sessão de triagem concluída num formato CSV consumível pelo pipeline Python, adicionando ao ficheiro triagens.csv uma nova linha com os dados dessa sessão.
+É importante perceber o papel deste módulo no contexto mais alargado da Parte B. O ficheiro triagens.csv é inicialmente criado pelo script gerar_dataset.py com exemplos sintéticos derivados das regras da Parte A - 365 linhas geradas programaticamente. O guardar_triagem.pl é o mecanismo que permite que esse ficheiro cresça com dados reais: cada vez que um utilizador conclui e valida uma triagem no sistema, este módulo é chamado automaticamente pelo servidor e acrescenta uma nova linha ao CSV, representando aquela sessão concreta. Com o tempo, o dataset deixa de ser puramente sintético e passa a incorporar experiência real, o que melhora a qualidade do treino nas execuções subsequentes de treinar_exportar.py.
+O predicado principal, guardar_triagem/1, recebe o identificador do nível de triagem determinado pelo motor (por exemplo, urgente) e percorre a lista canónica de 23 sintomas definida em sintomas_csv/1. Esta lista é deliberadamente idêntica, em nome e ordem, à constante SINTOMAS definida em gerar_dataset.py e treinar_exportar.py - esta correspondência é um invariante arquitetural crítico, pois garante que cada coluna do CSV está sempre alinhada com o índice de feature esperado pelos modelos de machine learning. Uma divergência nesta lista, por mais pequena que fosse, corromperia o treino silenciosamente: os modelos aprenderiam associações entre os sintomas errados e os níveis de triagem.
+Para cada sintoma, o predicado auxiliar cf_para_bit/2 consulta a memória de trabalho dinâmica (base_dados.pl) através do facto facto/2 e aplica uma binarização: se o fator de certeza (CF) associado ao sintoma for positivo (CF > 0), o sintoma é codificado como 1 (presente); caso contrário, é codificado como 0 (ausente ou negado). Esta decisão de binarização é uma simplificação intencional - embora o motor MYCIN opere com CFs contínuos entre −1.0 e +1.0, os modelos de classificação de árvore de decisão trabalham com variáveis binárias, pelo que a conversão é necessária para manter a compatibilidade. O resultado é uma linha com exatamente o mesmo formato das linhas geradas por gerar_dataset.py: 23 valores binários seguidos do rótulo de classe.
+A escrita para triagens.csv é feita por escrever_linha_csv/2, que verifica primeiro se o ficheiro existe: se não existir, cria-o e escreve o cabeçalho antes da linha de dados; se já existir, abre-o em modo de concatenação (append) para não destruir os exemplos anteriores. Toda a operação de escrita é envolvida num catch/3 que interceta erros de I/O sem interromper a sessão do utilizador.
+4.Pipeline de Aprendizagem Automática e Exportação  (treinar_exportar.py)
+Este script é o núcleo computacional da Parte B. A aquisição automática de conhecimento prevista nesta parte exige que os padrões latentes no dataset sejam transformados em regras explícitas e formalizadas, capazes de coexistir com o conhecimento perito já codificado manualmente. Para cumprir este objetivo, o script treinar_exportar.py implementa um pipeline que vai desde o carregamento do triagens.csv até à geração do ficheiro base_conhecimento_b.pl - fechando, assim, o ciclo entre os dados e o sistema de inferência.
+A escolha de dois modelos distintos responde a duas necessidades igualmente importantes mas de natureza diferente. Por um lado, é necessário melhorar a eficiência do processo de triagem, reduzindo o número de perguntas feitas ao utilizador - para isso é preciso saber quais os sintomas mais informativos e questioná-los primeiro. Por outro lado, é necessário extrair regras que o motor Prolog consiga interpretar e combinar com as regras manuais - o que exige um modelo cujo raciocínio interno seja legível e traduzível para lógica de produção. O Random Forest é utilizado para inferir a importância de cada sintoma como feature preditiva, enquanto a Decision Tree é utilizada para extrair regras interpretáveis em formato compatível com Prolog.
+Carregamento e Preparação dos Dados
+O script carrega o triagens.csv com pandas [7], seleciona as colunas correspondentes aos 23 sintomas como matriz de features X, e a coluna nivel como vetor de rótulos y. Os valores em falta (caso existam) são preenchidos com zero e o tipo é forçado para inteiro, garantindo que os modelos recebem exclusivamente valores binários {0, 1}.
+Em paralelo, é calculado o parâmetro MIN_SAMPLES - o número mínimo de exemplos que uma folha da Decision Tree tem de ter para ser considerada válida. O valor é fixado em 1% do total de exemplos do dataset, com um mínimo absoluto de 5. A razão para este cálculo dinâmico é simples: à medida que o dataset cresce com sessões reais (via guardar_triagem.pl), o limiar sobe proporcionalmente, tornando os filtros mais exigentes e as regras extraídas mais fiáveis. Folhas com muito poucas amostras representam padrões demasiado raros para serem clinicamente relevantes e são descartadas. 
+Random Forest - Ordenação de Sintomas por Importância
+Um Random Forest é um modelo de aprendizagem automática que funciona criando um conjunto alargado de árvores de decisão - estruturas que classificam exemplos através de uma sequência de perguntas sobre os dados. Cada árvore é treinada sobre uma amostra aleatória do dataset e das suas colunas, e a classificação final resulta da votação entre todas as árvores. Esta abordagem é mais robusta do que uma única árvore, pois a variabilidade entre as árvores compensa os erros individuais de cada uma.
+No contexto deste sistema, o Random Forest não é usado para classificar triagens - esse papel pertence ao motor MYCIN. O seu objetivo é mais específico: medir a importância de cada sintoma como variável preditiva. Durante o treino, o modelo regista com que frequência cada sintoma é utilizado para separar as classes e em que medida essa separação é eficaz. Os sintomas que mais contribuem para distinguir os níveis de triagem recebem uma importância mais elevada.
+Porém, as importâncias calculadas pelo modelo não são usadas diretamente. Como o dataset é sintético, sintomas de emergência como sem_respiracao podem ter baixa frequência global e ver a sua importância subestimada pelo modelo. Para corrigir esta limitação, é aplicado um bónus clínico de prioridade que se soma à importância calculada:
++0.50 para sintomas de emergência absoluta (sem_respiracao, sem_pulso, hemorragia, inconsciente, convulsoes, resp_dificuldade)
++0.30 para sintomas de quadros neurológicos e cardíacos graves (dor_peito, fala_dificil, fraqueza_lado, confusao, dor_irradia)
++0.10 para sintomas de urgência moderada (febre_alta, febre_bebe, dor_abd, tosse_febre, entre outros)
+A lista final de sintomas ordenada por esta importância ajustada é exportada para Prolog como o facto ordem_sintomas_ml/1. O motor de inferência usa esta ordem para determinar quais os sintomas a perguntar primeiro ao utilizador, maximizando a probabilidade de chegar a um diagnóstico com o menor número de perguntas possível.
+Decision Tree - Extração de Regras Interpretáveis
+
+Uma árvore de decisão é um modelo que aprende a classificar exemplos através de uma sequência de condições sobre as variáveis de entrada - neste caso, a presença ou ausência de cada sintoma. O que torna este modelo adequado para o sistema é a sua interpretabilidade: ao contrário do Random Forest, cada caminho da raiz até uma folha da árvore pode ser lido diretamente como uma regra lógica do tipo "se o sintoma A está presente e o sintoma B está ausente, então o nível de triagem é X".
+A árvore é treinada com uma profundidade máxima de 4 níveis. Esta limitação é intencional: árvores mais profundas geram regras com demasiadas condições, difíceis de interpretar clinicamente e com risco de aprender padrões específicos do dataset que não generalizam para casos reais.
+A extração das regras é feita percorrendo a árvore treinada desde a raiz até cada folha, acumulando as condições encontradas ao longo do caminho. Cada ramo representa uma condição sobre um sintoma: o ramo esquerdo corresponde à ausência do sintoma (codificada em Prolog como nao(sintoma)) e o ramo direito à sua presença. Ao chegar a uma folha, são aplicados dois filtros antes de aceitar a regra:
+Filtro de confiança: a folha tem de ter pelo menos 60% dos seus exemplos na mesma classe. Folhas com distribuição mais equilibrada indicam que o modelo hesita entre classes - essas regiões não produzem regras fiáveis.
+Filtro de suporte: a folha tem de ter um número mínimo de exemplos (MIN_SAMPLES). Folhas com muito poucos exemplos podem corresponder a padrões acidentais do dataset e não a tendências clínicas reais.
+Cada folha que passa ambos os filtros dá origem a uma regra com um ID sequencial dt_NNN, as premissas acumuladas no percurso, o nível de triagem da classe maioritária e o valor de CF correspondente à proporção de votos. As regras são por fim ordenadas por gravidade decrescente e exportadas para base_conhecimento_b.pl.
+5. Base de Conhecimento Gerada base_conhecimento_b
+O ficheiro base_conhecimento_b.pl corresponde ao output do pipeline de aprendizagem automática, contendo o conhecimento extraído a partir dos dados em formato compatível com o sistema de inferência em Prolog. 
+A sua estrutura inclui, por um lado, o facto ordem_sintomas_ml/1, que define a ordenação dos sintomas com base na sua relevância (calculada pelo Random Forest com ajuste clínico), sendo utilizado pelo motor para otimizar a sequência de perguntas ao utilizador. 
+Por outro lado, inclui um conjunto de regras regra/4, geradas automaticamente pela Decision Tree, que representam padrões aprendidos sob a forma de condições sobre sintomas e respetivo nível de triagem associado, acompanhados de um fator de confiança. 
+
+6.Visualização
+O desenvolvimento da interface de interação com o utilizador sofreu uma evolução significativa ao longo do projeto. Numa fase inicial, a interação com o motor de inferência MYCIN (Parte A) decorria via terminal (CLI) do ambiente SWI-Prolog. 
+Contudo,o sistema foi alterado para uma arquitetura Web cliente-servidor esta evolução consistiu no desenvolvimento de uma dashboard interativa, suportada por dois ficheiros fundamentais: o server.pl (Backend) e o interface.html (Frontend).
+6.1 Protocolo de Comunicação JSON
+O formato JSON atua exclusivamente como o idioma de troca de mensagens em tempo real entre o frontend (JavaScript) e o motor de inferência (Prolog). Neste fluxo de comunicação bidirecional, o cliente empacota as ações do utilizador (como o sintoma selecionado e o respetivo grau de certeza) em objetos JSON, enviando-os de forma assíncrona através da API Fetch. Do lado do servidor, o Prolog interceta estes dados utilizando o predicado http_read_json_dict, processa os cálculos matemáticos do MYCIN e devolve dicionários JSON estruturados que contêm as instruções seguintes para a interface, nomeadamente a próxima pergunta a colocar, a atualização gráfica dos scores em tempo real ou a justificação detalhada do diagnóstico final.
+6.2 Servidor e Motor de Inferência (server.pl)
+O ficheiro server.pl atua como o controlador central do sistema, utilizando as bibliotecas http/thread_httpd e http/http_json para converter o ambiente estático do Prolog num servidor Web reativo. A orquestração do motor MYCIN é gerida através de três rotas principais:
+POST /api/start:
+Prepara a nova sessão executando o predicado limpar e carrega a lista de sintomas otimizada pelo modelo de Machine Learning (ordem_sintomas_ml/1), garantindo que o interrogatório é guiado por relevância estatística.
+POST /api/answer: 
+É o núcleo computacional do sistema. Converte o input do utilizador num Fator de Certeza (CF) através do predicado tipo_para_cf/3 e regista o facto dinamicamente na memória (assertz). Em seguida, recalcula os scores finais: se o nível de gravidade atingir o limiar de segurança (0.80), a triagem para e compila o diagnóstico; caso contrário, avança para a próxima pergunta.
+POST /api/validate:
+Assegura a persistência dos dados reais. Invoca o módulo guardar_triagem.pl para exportar a sessão validada para o dataset triagens.csv, alimentando o treino contínuo da Parte B.
+Gestão de Concorrência (Mutex)
+Como o SWI-Prolog processa múltiplos pedidos em simultâneo e o motor MYCIN depende de uma base de dados dinâmica (onde os factos são alterados em tempo real), existia o risco crítico de race conditions - a mistura de dados clínicos entre utilizadores diferentes. Para garantir a integridade absoluta, toda a lógica de inferência e escrita nos endpoints foi encapsulada num bloco de exclusão mútua (with_mutex(sns_mutex, ...)), assegurando que o servidor processa apenas um evento clínico de cada vez na memória.
+6.3 Interface Gráfica e Suporte à Decisão (interface.html)
+A dashboard (frontend) opera como uma Single Page Application (SPA) desenhada em torno das funcionalidades de apoio à decisão clínica. Para dar resposta direta aos requisitos avançados de inferência com incerteza e explicabilidade (P1MAX), a interface disponibiliza os seguintes mecanismos:
+Slider de Incerteza: 
+Ultrapassando a limitação de respostas estritamente binárias (sim/não), o utilizador dispõe de um controlo para quantificar a sua convicção sobre a presença de um sintoma (0% a 100%). Este input numérico alimenta diretamente os cálculos de incerteza do MYCIN no servidor.
+Módulo de Explicabilidade ("Porquê?"):
+Cada cartão de pergunta incorpora um botão interativo que revela a justificação clínica daquela questão, garantindo a transparência do raciocínio lógico executado pelo sistema.
+Monitorização Dinâmica:
+Uma barra lateral exibe a evolução quantitativa dos scores para cada nível de prioridade em tempo real. Esta ferramenta reflete visivelmente como o motor reajusta a sua confiança perante cada nova evidência introduzida.
+Justificação do Diagnóstico Final:
+No fim da sessão, o sistema não emite apenas uma recomendação cega. Apresenta o detalhe técnico da inferência: a Regra Principal ativada, as premissas sintomáticas confirmadas ou negadas, e a percentagem de confiança final do modelo.
+6.4. Fecho do Ciclo de Aprendizagem (Validação)
+A interface atua como o mecanismo integrador com a componente de Aprendizagem Automática (Parte B). Após a apresentação do diagnóstico final, o utilizador tem a opção de validar o resultado obtido, o que desencadeia o processo de recolha de dados empíricos. Esta ação origina um pedido assíncrono (POST /api/validate) para o servidor Prolog, que, por sua vez, invoca o módulo de persistência (guardar_triagem.pl). Neste passo crucial, a memória dinâmica da sessão é analisada e os Fatores de Certeza (CF) contínuos introduzidos pelo utilizador são convertidos em valores binarizados (0 ou 1) para garantir a compatibilidade com os modelos preditivos, sendo a sessão gravada como uma nova linha no dataset triagens.csv. Desta forma transformamos sessões reais de utilização em novos exemplos de treino, permitindo que a base de dados evolua para além do conhecimento sintético inicial e melhorando iterativamente a extração de novas regras de decisão pelos algoritmos de Machine Learning.
+Integração com o Sistema da Parte A
+A compatibilidade entre as partes A e B é garantida por três decisões arquiteturais: (1) os identificadores de sintomas são exatamente os mesmos em todos os ficheiros; (2) as regras ML usam o mesmo predicado regra/4 com a mesma aridade e semântica das regras manuais; (3) as directivas multifile e discontiguous permitem que o SWI-Prolog trate as 30 regras manuais e as N regras ML como um único predicado unificado, sobre o qual o motor executa findall para calcular scores para todos os níveis. O resultado é um sistema híbrido onde o conhecimento perito e o conhecimento induzido coexistem e se complementam sem nenhuma alteração ao motor de inferência.
+Tarefas Extra (P1MAX)
+Sistema de inferência considerando incerteza
+O MYCIN foi desenvolvido na Universidade de Stanford na década de 1970 [1] com o propósito de auxiliar médicos no diagnóstico de infecções bacterianas graves e na recomendação de terapias antimicrobianas. A sua relevância histórica ultrapassa largamente o domínio médico que o motivou: o formalismo de raciocínio sob incerteza que introduziu, a Teoria da Certeza, tornou-se uma das abordagens mais influentes na construção de sistemas especialistas, precisamente por ter partido de uma constatação prática que os métodos probabilísticos clássicos não conseguiam endereçar de forma satisfatória.
+O problema da incerteza e a resposta do MYCIN
+Tanto o conhecimento clínico codificado nas regras como os dados fornecidos pelo utilizador são, por natureza, incertos. O MYCIN reconheceu explicitamente estas duas fontes de incerteza como distintas e igualmente relevantes: a incerteza heurística das regras, que reflecte o grau de confiança do especialista numa determinada associação clínica, e a incerteza dos dados de entrada, que reflecte o facto de o utilizador raramente poder afirmar com certeza absoluta a presença ou ausência de um sintoma. O sistema não aceitava respostas binárias: ao ser questionado, o utilizador podia atribuir um grau de certeza à sua própria observação, indicando por exemplo que tinha "quase a certeza" ou apenas "talvez". A certeza final de uma conclusão era calculada como o produto dessas duas componentes: CF_final = CF_utilizador  CF_regra. Desta forma, a incerteza propagava-se desde a resposta do utilizador até ao diagnóstico final, atenuando proporcionalmente a força de cada regra antes de a aplicar.
+A resposta do MYCIN a este problema foi a criação da Teoria da Certeza, deliberadamente desenvolvida como alternativa pragmática à teoria das probabilidades [5]. A motivação era clara: as estimativas que os especialistas conseguem fornecer para probabilidades condicionais são quase sempre numericamente inconsistentes entre si, tornando a aplicação rigorosa do formalismo bayesiano impraticável em contexto real. A Teoria da Certeza não ambiciona rigor probabilístico, sendo julgada pela sua utilidade prática e não pela sua correção teórica. Esta honestidade epistemológica é ela própria uma das razões pela qual o modelo foi amplamente adoptado.
+O que foi adoptado directamente
+O presente sistema adopta o núcleo matemático da Teoria da Certeza de forma integral. Cada facto na memória de trabalho e cada regra na base de conhecimento possuem um Factor de Certeza CF  [−1.0, 1.0], com a mesma semântica do MYCIN original: CF = 1.0 significa certeza total, CF = 0.0 significa desconhecimento completo, e valores negativos representam evidência contrária. A negação de uma premissa segue a fórmula CF(B) = −CF(B), definida no predicado cf_premissa/2. A conjunção de premissas usa o mínimo como operador AND, com o CF do conjunto limitado pelo elo mais fraco, implementado em avaliar_premissas/3. O limiar de 0.20 abaixo do qual nenhuma regra é disparada, descrito no MYCIN original como mecanismo para evitar a aplicação de regras com efeito marginal e tornar as explicações mais claras, está presente em avaliar_regra/3. A fórmula de combinação de evidências múltiplas, nos seus três ramos, é igualmente idêntica à original.
+Para evidências concordantes positivas, CF1 + CF2 − CF1  CF2 garante reforço mútuo com resultado sempre inferior a 1.0, evitando certeza absoluta por acumulação. Para evidências concordantes negativas, CF1 + CF2 + CF1  CF2 aplica a simetria do modelo. Para evidências conflituantes, (CF1 + CF2) / (1 − min(|CF1|, |CF2|)) resolve o conflito, com protecção explícita contra divisão por zero quando os CFs se anulam mutuamente. A implementação em combinar_dois_cfs/3 reproduz este comportamento com fidelidade. Da mesma forma, a recolha de incerteza do utilizador segue o mesmo princípio do MYCIN: o utilizador indica uma resposta qualitativa acompanhada de um grau de certeza numérico, convertido directamente num CF, e a certeza final da regra é o produto desse CF pelo CF base da regra, propagando a incerteza desde o input até ao diagnóstico.
+O que é análogo mas não idêntico, e porquê
+A diferença mais significativa reside na estrutura dos factos. O MYCIN original representava o conhecimento sob a forma de triplos associativos: o atributo de um objecto tem um valor com certeza CF, uma estrutura adequada ao seu domínio, onde era necessário distinguir entre o tipo de infecção de um doente e o organismo responsável, cada um com os seus próprios atributos e valores. No presente sistema, o predicado facto/2 adopta uma estrutura binária simplificada: um sintoma tem um CF associado, sem necessidade de distinção entre objecto e atributo, uma vez que cada sintoma é já um predicado atómico. Esta simplificação é adequada ao domínio e não compromete a correta aplicação do formalismo de incerteza.
+Por fim, a base de conhecimento inclui um conjunto de contra-evidências, regras com CF base negativo, que penalizam activamente níveis de urgência elevados quando o padrão de sintomas sugere uma etiologia benigna. Esta abordagem é fiel ao espírito do MYCIN, que suportava nativamente CFs negativos nas regras como mecanismo de redução de confiança, e permite que o sistema raciocine de forma mais próxima do clínico experiente: ponderando evidência a favor e contra antes de formular uma conclusão, em vez de acumular apenas evidência positiva até atingir um limiar.
+Sistema de inferência considerando explicação
+Para além da inferência baseada em regras, também foi implementado um mecanismo de explicação com o objetivo de tornar o sistema mais transparente e compreensível para o utilizador. Esta funcionalidade permite justificar o resultado final da triagem, explicando quais os sintomas e regras que contribuíram para a decisão.
+A explicação foi implementada através da associação de descrições textuais a cada regra, ao utilizar o predicado explicacao_regra/2. Sempre que uma regra é ativada durante o processo de inferência, a sua explicação correspondente é armazenada e apresentada ao utilizador como justificação do diagnóstico.
+Além disso, foi definido o predicado explicacao/2 para fornecer descrições detalhadas dos sintomas que permite ao utilizador solicitar esclarecimentos durante a interação (por exemplo através de um comando específico na interface). Esta funcionalidade suporta a compreensão do significado clínico de cada pergunta, contribuindo para respostas mais claras.
+Durante o processo de inferência, à medida que as hipóteses são avaliadas, as justificações associadas às regras ativadas são propagadas até à conclusão final. No final da triagem, o sistema apresenta não só o nível de encaminhamento mas também as razões clínicas que levaram a essa decisão de forma a garantir o rastreamento e a interpretação clara.
+Esta abordagem aproxima o sistema de um sistema pericial explicável, que permite não só obter uma decisão mas também compreender o raciocínio, que é particularmente relevante em contextos de apoio à decisão na área da saúde.
+
+Conclusões
+6.1. Síntese
+O presente projeto materializou-se no desenvolvimento de um Sistema Inteligente de Apoio à Decisão (SISD) dedicado à triagem clínica, concebido com o propósito de encaminhar utentes para o nível de cuidados adequado mediante a sintomatologia reportada. O resultado final consubstancia-se num sistema híbrido em Prolog que articula, de forma coerente, o conhecimento clínico extraído manualmente dos protocolos SNS24 com regras induzidas automaticamente via aprendizagem automática a partir de um dataset sintético. O motor de inferência, núcleo computacional do sistema, adopta integralmente o formalismo de Factores de Certeza do paradigma MYCIN, dotando a arquitectura de capacidade de raciocínio sob incerteza e permitindo a produção de diagnósticos probabilísticos fundamentados em justificações clínicas explícitas.
+A solução concretizada cumpre a totalidade dos requisitos nucleares - base de conhecimento, sistema de inferência, base de dados e interface - transcendendo-os pela integração das funcionalidades avançadas de incerteza e explicação (P1MAX). Adicionalmente, o sistema evoluiu para uma arquitectura moderna de visualização, suportada por uma interface web que comunica com o motor Prolog através de um servidor HTTP, garantindo a usabilidade do sistema e dispensando a interacção directa com o terminal de comandos.
+6.2. Discussão
+A qualidade da solução final reflete um equilíbrio entre o rigor das regras determinísticas e a flexibilidade estatística que o domínio clínico exige. A adopção da Teoria da Certeza do paradigma MYCIN conferiu ao sistema a capacidade de gerir a ambiguidade inerente ao diagnóstico de sintomas, e a arquitectura modular que interliga o motor Prolog a uma interface web via HTTP provou ser robusta, auditável e preparada para receber conhecimento adicional sem alterações estruturais.
+O projeto atinge plenamente os objetivos propostos, tanto os requisitos mínimos como os opcionais. O sistema mapeia com sucesso o conhecimento clínico dos protocolos SNS24 para um modelo computacional funcional, encaminhando os utentes com base na avaliação probabilística dos sintomas reportados e justificando activamente o caminho lógico percorrido - respondendo assim à necessidade de transparência característica dos sistemas especialistas.
+As maiores dificuldades residiram não só na programação, mas principalmente na representação do conhecimento. A tradução do raciocínio clínico para estruturas formais se-então revelou-se exigente pela subjectividade inerente à percepção de sintomas. A sincronização entre as regras manuais e as regras geradas por aprendizagem automática exigiu múltiplas iterações de calibração, e a transição para o ambiente web implicou uma aprendizagem adicional na gestão de estado de sessões assíncronas que as abordagens iniciais de terminal não antecipavam.
+O projecto atingiu todos os objectivos propostos no enunciado, tanto os requisitos mínimos como os opcionais, resultando num sistema funcional, modular e tecnicamente fundamentado. A solução final integra de forma coerente conhecimento clínico adquirido manualmente, inferência sob incerteza baseada no formalismo MYCIN, aprendizagem automática e uma interface web em tempo real - um nível de abrangência que vai além do mínimo exigido. A principal limitação reconhecida, o carácter sintético do dataset da Parte B, é inerente às condições do projecto e não compromete a validade arquitectural da solução. O grupo trabalhou de forma organizada, com distribuição clara de responsabilidades e integração bem conseguida entre as diferentes componentes. Por estas razões, o grupo autoavalia o projeto com 18 valores.
+6.3. Funcionamento do Trabalho em Grupo
+O trabalho em grupo decorreu de forma organizada e colaborativa ao longo do semestre. A distribuição de tarefas foi definida numa fase inicial e manteve-se estável, com cada elemento a assumir responsabilidade sobre a sua componente, o que facilitou a integração das partes sem conflitos técnicos significativos. A comunicação entre os membros foi regular, com reuniões de sincronização periódicas para garantir coerência entre as diferentes componentes do sistema. As dificuldades que surgiram foram resolvidas em conjunto, nomeadamente na fase de integração entre a Parte A e a Parte B, que exigiu coordenação entre os responsáveis pelo motor de inferência e pelo pipeline de aprendizagem automática.
+No que respeita à autodiferenciação, o grupo considera que todos os elementos contribuíram de forma ativa e proporcional às responsabilidades atribuídas, pelo que as avaliações individuais propostas são as seguintes:
+Nome
+Número
+Avaliação Proposta
+Alexandr Tchikoulaev
+A103625
+18
+André Pinto
+A106825
+18
+João Alves
+A102394
+18
+Rui Silva
+A106831
+18
+
+
+
+
+Anexo A
+base_conhecimento_a.pl:
+:- multifile regra/4.
+:- multifile explicacao_regra/2.
+:- discontiguous regra/4.
+:- discontiguous explicacao_regra/2.
+:- discontiguous explicacao/2.
+
+
+% ----------------------------------------------------------------
+% SINTOMAS
+% ----------------------------------------------------------------
+sintoma(sem_respiracao,   'Paragem respiratoria (nao respira de todo)').
+sintoma(sem_pulso,        'Paragem cardiaca (sem pulso detectavel)').
+sintoma(resp_dificuldade, 'Falta de ar grave (nao consegue falar ou cor azulada)').
+sintoma(hemorragia,       'Hemorragia abundante e incontrolavel').
+sintoma(inconsciente,     'Alteracao da consciencia (nao responde ou sonolencia marcada)').
+sintoma(convulsoes,       'Convulsoes ou contracoes involuntarias do corpo').
+sintoma(dor_peito,        'Dor no centro do peito ha mais de 10 minutos').
+sintoma(dor_irradia,      'A dor irradia para o braco, mandibula ou costas').
+sintoma(fala_dificil,     'Dificuldade subita em falar ou fala arrastada').
+sintoma(fraqueza_lado,    'Fraqueza subita num so lado do corpo ou boca ao lado').
+sintoma(confusao,         'Confusao mental ou desorientacao subita').
+sintoma(dor_abd,          'Dor abdominal muito intensa e persistente').
+sintoma(febre_bebe,       'Febre em bebe com menos de 3 meses').
+sintoma(febre_alta,       'Febre acima de 39 graus Celsius').
+sintoma(tosse_febre,      'Tosse acompanhada de febre').
+sintoma(dor_persiste,     'Dor moderada que nao cede a medicacao').
+sintoma(vomitos,          'Vomitos repetidos que impedem ingerir liquidos').
+sintoma(diarreia,         'Diarreia grave com sinais de desidratacao').
+sintoma(dor_garganta,     'Dor de garganta com dificuldade em engolir').
+sintoma(constipacao,      'Sintomas de constipacao (tosse ligeira, nariz entupido)').
+sintoma(dor_leve,         'Dor ligeira controlada com medicacao habitual').
+sintoma(febre_baixa,      'Febre baixa, abaixo de 38 graus Celsius').
+sintoma(mal_estar,        'Mal-estar geral sem sintomas especificos').
+
+
+% ----------------------------------------------------------------
+% NIVEIS DE TRIAGEM
+% ----------------------------------------------------------------
+nivel(emergencia,          'EMERGENCIA',    'Ligue 112 (INEM) imediatamente').
+nivel(muito_urgente,       'MUITO URGENTE', 'Dirija-se a urgencia hospitalar agora').
+nivel(urgente,             'URGENTE',       'Marque consulta no centro de saude em 24h').
+nivel(pouco_urgente,       'POUCO URGENTE', 'Autocuidados em casa, vigiar evolucao').
+nivel(sem_sintomas_alarme, 'SEM ALARME',    'Vigiar; contactar SNS24 se piorar').
+
+
+% ----------------------------------------------------------------
+% REGRAS DE PRODUCAO
+% CF: 0.40-0.65 sugestivo, 0.70-0.85 sindrome tipica, 0.90+ certeza alta.
+% Regras com N+1 sintomas devem ter CF >= regra de N (mais sintomas = mais certeza).
+% ----------------------------------------------------------------
+
+
+% EMERGENCIA
+regra(r_em1, se([sem_respiracao]),   entao(emergencia), 0.95).
+regra(r_em2, se([sem_pulso]),        entao(emergencia), 0.95).
+regra(r_em3, se([resp_dificuldade]), entao(emergencia), 0.85).
+regra(r_em4, se([hemorragia]),       entao(emergencia), 0.85).
+regra(r_em5, se([inconsciente]),     entao(emergencia), 0.85).
+% Convulsoes activas: comprometem via aerea, protocolo SNS24 indica 112.
+regra(r_em7, se([convulsoes]),       entao(emergencia), 0.85).
+% Triada septica classica.
+regra(r_em6, se([febre_alta, confusao, dor_abd]), entao(emergencia), 0.88).
+
+
+% MUITO URGENTE
+regra(r_mu1, se([dor_peito, dor_irradia]),     entao(muito_urgente), 0.90).
+regra(r_mu2, se([dor_peito]),                  entao(muito_urgente), 0.60).
+regra(r_mu3, se([fala_dificil]),               entao(muito_urgente), 0.80).
+regra(r_mu4, se([fraqueza_lado]),              entao(muito_urgente), 0.80).
+% dor_abd sem febre: afasta sepsis mas pode ser abdomen agudo.
+regra(r_mu6, se([dor_abd, nao(febre_alta)]),   entao(muito_urgente), 0.60).
+% Confusao subita e muito_urgente com ou sem febre; r_em6 prevalece se tambem houver dor_abd.
+regra(r_mu7, se([confusao]),                   entao(muito_urgente), 0.80).
+% Padrao FAST completo: dois sinais AVC em simultaneo.
+regra(r_mu8, se([fala_dificil, fraqueza_lado]), entao(muito_urgente), 0.92).
+% Febre + dor_abd sem confusao: r_em6 nao dispara, pode ser cirurgico/infeccioso.
+regra(r_mu9, se([febre_alta, dor_abd]),        entao(muito_urgente), 0.72).
+
+
+% URGENTE
+regra(r_ur1, se([febre_bebe]),                              entao(urgente), 0.90).
+regra(r_ur2, se([febre_alta, tosse_febre]),                 entao(urgente), 0.80).
+regra(r_ur3, se([vomitos, diarreia]),                       entao(urgente), 0.75).
+regra(r_ur4, se([febre_alta]),                              entao(urgente), 0.50).
+regra(r_ur5, se([dor_persiste]),                            entao(urgente), 0.40).
+regra(r_ur6, se([dor_garganta]),                            entao(urgente), 0.55).
+% Bebe com febre + perda de liquidos por dupla via: risco critico de desidratacao.
+regra(r_ur7, se([febre_bebe, vomitos, diarreia]),           entao(muito_urgente), 0.88).
+regra(r_ur8, se([febre_alta, tosse_febre, dor_persiste]),   entao(urgente), 0.85).
+% Dor_abd sem sintomas GI afasta gastroenterite; sugere origem cirurgica/urologica.
+regra(r_ur9, se([dor_abd, nao(vomitos), nao(diarreia)]),    entao(urgente), 0.80).
+
+
+% POUCO URGENTE
+regra(r_pu1, se([constipacao]),           entao(pouco_urgente), 0.70).
+regra(r_pu2, se([dor_leve]),              entao(pouco_urgente), 0.65).
+regra(r_pu3, se([febre_baixa]),           entao(pouco_urgente), 0.60).
+regra(r_pu4, se([dor_leve, mal_estar]),   entao(pouco_urgente), 0.70).
+
+
+% SEM ALARME
+regra(r_sa1, se([mal_estar]),                    entao(sem_sintomas_alarme), 0.55).
+% Intencionalmente sem_alarme: motor combina com r_pu1 e reporta pouco_urgente.
+regra(r_sa2, se([constipacao, febre_baixa]),     entao(sem_sintomas_alarme), 0.65).
+
+
+% ----------------------------------------------------------------
+% EXPLICACOES DAS REGRAS (exibidas no resultado final)
+% ----------------------------------------------------------------
+
+
+% Emergencia
+explicacao_regra(r_em1, 'Paragem respiratoria requer suporte basico de vida imediato.').
+explicacao_regra(r_em2, 'Paragem cardiaca necessita de reanimacao e chamada ao 112.').
+explicacao_regra(r_em3, 'Falta de ar grave e coloracao azulada indicam hipoxia severa.').
+explicacao_regra(r_em4, 'Hemorragias activas podem levar a choque hipovolemico.').
+explicacao_regra(r_em5, 'Alteracao de consciencia profunda sugere lesao ou doenca grave.').
+explicacao_regra(r_em7, 'Convulsoes activas comprometem a via aerea, causam hipoxia e indicam emergencia neurologica. O protocolo SNS24 indica chamada imediata ao 112.').
+explicacao_regra(r_em6, 'Febre alta + confusao + dor abdominal e o triade classica de sepsis, infeccao disseminada com risco de falencia multiorganica imediata.').
+
+
+% Muito urgente
+explicacao_regra(r_mu1, 'Dor no peito com irradiacao e o quadro classico de enfarte do miocardio.').
+explicacao_regra(r_mu2, 'Dor no peito isolada pode ser cardiaca, requerendo avaliacao muito urgente.').
+explicacao_regra(r_mu3, 'Dificuldade repentina na fala e um sinal de alerta de Acidente Vascular Cerebral (AVC).').
+explicacao_regra(r_mu4, 'Fraqueza unilateral do corpo e fortemente indicativa de AVC.').
+explicacao_regra(r_mu6, 'Dor abdominal intensa sem febre pode significar abdomen agudo (ex: apendicite, colica renal). A ausencia de febre nao afasta a urgencia cirurgica.').
+explicacao_regra(r_mu7, 'A confusao mental subita indica grave alteracao neurologica, metabolica ou infecciosa, independentemente de existir febre. Febre alta + confusao sem dor abdominal pode indicar meningite ou encefalite. Se tambem existir dor abdominal, aplica-se r_em6 (sepsis, emergencia).').
+explicacao_regra(r_mu8, 'Dificuldade na fala combinada com fraqueza unilateral e o padrao FAST classico de AVC, a combinacao eleva a certeza diagnostica acima de cada sinal isolado.').
+explicacao_regra(r_mu9, 'Febre alta associada a dor abdominal intensa, na ausencia de confusao, pode indicar infeccao com foco cirurgico (apendicite com febre, colecistite aguda, pielonefrite grave). Requer avaliacao hospitalar urgente.').
+
+
+% Urgente
+explicacao_regra(r_ur1, 'A febre em bebes menores de 3 meses e sempre um sinal de alerta (sistema imunitario imaturo).').
+explicacao_regra(r_ur2, 'Febre alta combinada com tosse levanta a suspeita de pneumonia.').
+explicacao_regra(r_ur3, 'Vomitos e diarreia simultaneos acarretam um alto risco de desidratacao.').
+explicacao_regra(r_ur4, 'Febre alta persistente requer investigacao de foco infeccioso.').
+explicacao_regra(r_ur5, 'Dor que nao cede aos analgesicos precisa de reavaliacao medica.').
+explicacao_regra(r_ur6, 'Dificuldade em engolir acompanhada de dor pode indicar infeccao severa na garganta ou abscesso periamigdalino, com risco de compromisso da via aerea.').
+explicacao_regra(r_ur7, 'Bebe febril com perda de liquidos por vomitos E diarreia enfrenta risco critico de desidratacao severa. As reservas de um lactente esgotam-se em horas. Este quadro justifica ida imediata a urgencia hospitalar.').
+explicacao_regra(r_ur8, 'Febre alta com tosse e dor que nao cede a analgesicos aponta para infeccao respiratoria profunda (ex: pneumonia bacteriana), que pode necessitar de antibioterapia urgente.').
+explicacao_regra(r_ur9, 'Dor abdominal sem vomitos nem diarreia afasta a gastroenterite como causa. A ausencia de sintomas gastrointestinais com dor intensa sugere origem cirurgica ou urologica (apendicite, colica renal ou colecistite) que requer avaliacao medica presencial urgente.').
+
+
+% Pouco urgente / sem alarme
+explicacao_regra(r_pu1, 'Sintomas gripais ligeiros devem ser autotratados com repouso.').
+explicacao_regra(r_pu2, 'Dores ligeiras que cedem a medicacao nao requerem idas urgentes ao hospital.').
+explicacao_regra(r_pu3, 'Febres baixas sao normalmente autolimitadas e respondem a antipireticos em casa.').
+explicacao_regra(r_pu4, 'Mal-estar com dor ligeira e controlada consolida um quadro benigno, o medico de familia e o destino adequado, nao a urgencia hospitalar.').
+explicacao_regra(r_sa1, 'O mal-estar geral sem alarmes deve ser apenas vigiado em casa.').
+explicacao_regra(r_sa2, 'Constipacao com febre baixa e o quadro viral autolimitado mais tipico, medicacao de venda livre e habitualmente suficiente.').
+
+
+% ----------------------------------------------------------------
+% EXPLICACOES DOS SINTOMAS (resposta ao comando "p." do utilizador)
+% ----------------------------------------------------------------
+explicacao(sem_respiracao,   'A ausencia de respiracao e a emergencia medica mais critica, exigindo inicio imediato de Suporte Basico de Vida.').
+explicacao(sem_pulso,        'A paragem cardiaca requer reanimacao imediata para tentar restabelecer o fluxo sanguineo ao cerebro.').
+explicacao(resp_dificuldade, 'A dificuldade grave em respirar pode indicar falencia respiratoria, o que representa um risco imediato de vida.').
+explicacao(hemorragia,       'A perda rapida e incontrolavel de sangue pode levar rapidamente ao choque hipovolemico.').
+explicacao(inconsciente,     'A perda de consciencia indica grave sofrimento cerebral, podendo ser trauma, AVC ou intoxicacao.').
+explicacao(convulsoes,       'As convulsoes activas comprometem a via aerea, causam hipoxia e indicam uma emergencia neurologica aguda que requer chamada imediata ao 112.').
+explicacao(dor_peito,        'A dor no peito e o sintoma primario de alerta para avaliar a hipotese de um Enfarte do Miocardio (ataque cardiaco).').
+explicacao(dor_irradia,      'A irradiacao da dor no peito para os membros ou costas e um padrao que reforca muito a suspeita de origem cardiaca.').
+explicacao(fala_dificil,     'A dificuldade subita em articular palavras e um dos principais sinais de alerta de um possivel AVC.').
+explicacao(fraqueza_lado,    'A perda de forca num dos lados do corpo e um sintoma neurologico classico de isquemia ou hemorragia cerebral.').
+explicacao(confusao,         'A confusao mental subita pode ser sinal de infeccao grave (meningite, sepsis), falta de oxigenio ou alteracao neurologica abrupta. Com febre alta, o risco aumenta significativamente.').
+explicacao(dor_abd,          'Dores abdominais subitas e muito intensas podem indicar condicoes agudas graves, como apendicite ou perfuracao de orgaos. Associada a febre alta, o risco cirurgico aumenta.').
+explicacao(febre_bebe,       'Os bebes tem um sistema imunitario imaturo, pelo que a febre requer sempre avaliacao medica urgente para despiste de infeccoes.').
+explicacao(febre_alta,       'Febres muito elevadas (acima de 39 graus) sugerem infeccoes que podem requerer intervencao medica ou antibioticos. Associada a confusao ou dor abdominal, a urgencia aumenta.').
+explicacao(tosse_febre,      'A tosse associada a febre levanta a forte suspeita de infeccoes respiratorias, como a pneumonia.').
+explicacao(dor_persiste,     'Uma dor que nao cede a medicacao de alivio habitual sugere um quadro inflamatorio ou lesivo que necessita de diagnostico formal.').
+explicacao(vomitos,          'A incapacidade repetida de reter liquidos no estomago leva rapidamente a desidratacao severa.').
+explicacao(diarreia,         'A perda de grandes volumes de liquidos pelos intestinos comporta um alto risco de desidratacao e desequilibrio electrolitico.').
+explicacao(dor_garganta,     'Se acompanhada de grande dificuldade em engolir, pode indicar abscesso periamigdalino ou epiglotite, infeccoes que ameacam bloquear a via aerea.').
+explicacao(constipacao,      'Sintomas tipicos de constipacao ajudam a enquadrar o quadro como uma provavel infeccao viral benigna, sem gravidade.').
+explicacao(dor_leve,         'Dores de baixa intensidade e facilmente controlaveis geralmente nao indicam problemas com os seus orgaos vitais.').
+explicacao(febre_baixa,      'Temperaturas moderadas sao a resposta natural de defesa do corpo a pequenas agressoes virais ou inflamatorias.').
+explicacao(mal_estar,        'Sentir-se indisposto de forma vaga, sem sinais de alarme, ajuda-nos a confirmar a ausencia de quadros clinicos urgentes.').
+explicacao(_, 'Este sintoma e avaliado no nosso modelo clinico para afastar condicoes potencialmente graves.').
+
+
+% ----------------------------------------------------------------
+% ORDEM DE QUESTIONAMENTO
+% febre_alta antes de confusao e dor_abd para r_em6/r_mu9 dispararem mais cedo.
+% ----------------------------------------------------------------
+ordem_sintomas([
+    sem_respiracao, sem_pulso, resp_dificuldade, hemorragia, inconsciente,
+    convulsoes, dor_peito, dor_irradia, fala_dificil, fraqueza_lado,
+    febre_alta, confusao, dor_abd, febre_bebe,
+    tosse_febre, dor_persiste, vomitos, diarreia,
+    dor_garganta, constipacao, dor_leve, febre_baixa, mal_estar
+]).
+% ----------------------------------------------------------------
+% CONTRA-EVIDENCIAS (MYCIN puro: CF negativos)
+% Padroes benignos que reduzem a confianca em niveis de urgencia elevados.
+% Sao combinados pelo motor via ramo 3 da formula MYCIN (+/-).
+% ----------------------------------------------------------------
+
+
+% Contra emergencia
+regra(r_c_em1, se([dor_leve]),         entao(emergencia), -0.70).
+regra(r_c_em2, se([constipacao]),      entao(emergencia), -0.75).
+regra(r_c_em3, se([febre_baixa]),      entao(emergencia), -0.70).
+regra(r_c_em4, se([mal_estar]),        entao(emergencia), -0.45).
+
+
+% Contra muito_urgente
+regra(r_c_mu1, se([dor_leve]),         entao(muito_urgente), -0.55).
+regra(r_c_mu2, se([constipacao]),      entao(muito_urgente), -0.60).
+regra(r_c_mu3, se([febre_baixa]),      entao(muito_urgente), -0.50).
+regra(r_c_mu4, se([mal_estar]),        entao(muito_urgente), -0.35).
+
+
+% Contra urgente
+regra(r_c_ur1, se([dor_leve]),         entao(urgente), -0.40).
+regra(r_c_ur2, se([constipacao]),      entao(urgente), -0.30).
+regra(r_c_ur3, se([febre_baixa]),      entao(urgente), -0.25).
+
+
+% ----------------------------------------------------------------
+% EXPLICACOES DAS CONTRA-EVIDENCIAS
+% ----------------------------------------------------------------
+
+
+explicacao_regra(r_c_em1, 'Dor ligeira e controlavel e incompativel com emergencia; reduz fortemente a probabilidade de quadro critico.').
+explicacao_regra(r_c_em2, 'Constipacao e um quadro viral tipicamente benigno e autolimitado, incompativel com emergencia.').
+explicacao_regra(r_c_em3, 'Febre baixa nao suporta diagnostico de emergencia; aponta para quadro viral autolimitado.').
+explicacao_regra(r_c_em4, 'Mal-estar vago sem sinais de alarme especificos e evidencia moderada contra emergencia.').
+explicacao_regra(r_c_mu1, 'Dor controlavel com medicacao habitual e inconsistente com quadro muito urgente.').
+explicacao_regra(r_c_mu2, 'Constipacao tipica sem sinais de gravidade afasta quadro muito urgente.').
+explicacao_regra(r_c_mu3, 'Febre baixa nao suporta isoladamente um quadro muito urgente.').
+explicacao_regra(r_c_mu4, 'Mal-estar geral sem outros sinais e evidencia leve contra muito urgente.').
+explicacao_regra(r_c_ur1, 'Dor ligeira que cede a medicacao habitual nao justifica urgencia formal.').
+explicacao_regra(r_c_ur2, 'Constipacao ligeira e evidencia leve contra urgencia hospitalar.').
+explicacao_regra(r_c_ur3, 'Febre baixa e tipicamente autolimitada, evidencia leve contra urgencia formal.').
+
+
+
+base_conhecimento_b.pl:
+% BASE DE CONHECIMENTO B - Triagem SNS24 (Gerada por ML)
+% Gerado automaticamente em: 2026-05-03 22:49:48
+% Dataset: triagens.csv (369 exemplos)
+% Modelos: Random Forest (200 arvores), Decision Tree (max_depth=4)
+% Filtros: CF >= 0.6, n_amostras >= 5
+% Nota: contra-evidencias MYCIN (CF negativos) estao em base_conhecimento_a.pl
+
+
+:- multifile regra/4.
+:- multifile explicacao_regra/2.
+:- discontiguous regra/4.
+:- discontiguous explicacao_regra/2.
+
+
+% Sintomas ordenados por feature importance (RF) + bonus clinico.
+ordem_sintomas_ml([
+    sem_pulso, hemorragia, resp_dificuldade, sem_respiracao,
+    inconsciente, convulsoes, confusao, fala_dificil,
+    fraqueza_lado, dor_peito, dor_irradia, dor_abd,
+    febre_alta, tosse_febre, febre_bebe, diarreia,
+    dor_persiste, dor_garganta, vomitos, dor_leve,
+    febre_baixa, constipacao, mal_estar
+]).
+
+
+% ----------------------------------------------------------------
+% REGRAS GERADAS PELA DECISION TREE
+% IDs dt_NNN distinguem-se dos r_XXX manuais da Parte A.
+% ----------------------------------------------------------------
+
+
+% MUITO URGENTE
+% CF=0.78, n=5
+regra(dt_001, se([nao(dor_leve), constipacao, nao(febre_baixa), confusao]), entao(muito_urgente), 0.78).
+explicacao_regra(dt_001, 'Padrao ML (MUITO URGENTE, confianca=78%, n=5): presenca de constipacao, confusao mental; ausencia de dor ligeira, febre baixa.').
+
+
+% URGENTE
+% CF=1.00, n=25
+regra(dt_002, se([nao(dor_leve), nao(constipacao), tosse_febre, febre_alta]), entao(urgente), 1.0).
+explicacao_regra(dt_002, 'Padrao ML (URGENTE, confianca=100%, n=25): presenca de tosse com febre, febre alta (>39C); ausencia de dor ligeira, constipacao.').
+
+
+% POUCO URGENTE
+% CF=1.00, n=9
+regra(dt_003, se([dor_leve, nao(febre_alta), mal_estar]), entao(pouco_urgente), 1.0).
+explicacao_regra(dt_003, 'Padrao ML (POUCO URGENTE, confianca=100%, n=9): presenca de dor ligeira, mal-estar geral; ausencia de febre alta (>39C).').
+
+
+% CF=0.85, n=14
+regra(dt_004, se([dor_leve, nao(febre_alta), nao(mal_estar), nao(constipacao)]), entao(pouco_urgente), 0.85).
+explicacao_regra(dt_004, 'Padrao ML (POUCO URGENTE, confianca=85%, n=14): presenca de dor ligeira; ausencia de febre alta (>39C), mal-estar geral, constipacao.').
+
+
+% CF=0.68, n=5
+regra(dt_005, se([dor_leve, nao(febre_alta), nao(mal_estar), constipacao]), entao(pouco_urgente), 0.68).
+explicacao_regra(dt_005, 'Padrao ML (POUCO URGENTE, confianca=68%, n=5): presenca de dor ligeira, constipacao; ausencia de febre alta (>39C), mal-estar geral.').
+
+
+% SEM ALARME
+% CF=0.89, n=14
+regra(dt_006, se([nao(dor_leve), constipacao, febre_baixa]), entao(sem_sintomas_alarme), 0.89).
+explicacao_regra(dt_006, 'Padrao ML (SEM ALARME, confianca=89%, n=14): presenca de constipacao, febre baixa; ausencia de dor ligeira.').
+
+
+% CF=0.75, n=23
+regra(dt_007, se([nao(dor_leve), nao(constipacao), nao(tosse_febre), mal_estar]), entao(sem_sintomas_alarme), 0.75).
+explicacao_regra(dt_007, 'Padrao ML (SEM ALARME, confianca=75%, n=23): presenca de mal-estar geral; ausencia de dor ligeira, constipacao, tosse com febre.').
+
+base_dados.pl:
+:- dynamic facto/2.
+
+
+limpar :- retractall(facto(_, _)).
+
+gerar_dataset.py: 
+import re
+import csv
+import random
+
+
+SINTOMAS = [
+    'sem_respiracao', 'sem_pulso', 'resp_dificuldade', 'hemorragia', 'inconsciente',
+    'convulsoes', 'dor_peito', 'dor_irradia', 'fala_dificil', 'fraqueza_lado',
+    'febre_alta', 'confusao', 'dor_abd', 'febre_bebe',
+    'tosse_febre', 'dor_persiste', 'vomitos', 'diarreia',
+    'dor_garganta', 'constipacao', 'dor_leve', 'febre_baixa', 'mal_estar'
+]
+
+
+def parse_rules(filepath='base_conhecimento_a.pl'):
+    rules = []
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+    except FileNotFoundError:
+        print(f"[AVISO] {filepath} nao encontrado. A usar regras embutidas.")
+        return
+
+
+    pattern = r'regra\(\s*(\w+)\s*,\s*se\(\[([^\]]*)\]\)\s*,\s*entao\(\s*(\w+)\s*\)\s*,\s*(-?[\d.]+)\s*\)'
+    for m in re.finditer(pattern, content):
+        rule_id   = m.group(1)
+        syms_raw  = m.group(2)
+        level     = m.group(3)
+        cf        = float(m.group(4))
+
+
+        positive_syms = []
+        negated_syms  = []
+        for tok in syms_raw.split(','):
+            tok = tok.strip()
+            if not tok:
+                continue
+            neg_match = re.match(r'nao\((\w+)\)', tok)
+            if neg_match:
+                negated_syms.append(neg_match.group(1))
+            else:
+                positive_syms.append(tok)
+
+
+        rules.append({
+            'id':            rule_id,
+            'positive_syms': positive_syms,
+            'negated_syms':  negated_syms,
+            'syms_raw':      syms_raw.strip(),
+            'level':         level,
+            'cf':            cf
+        })
+
+
+    if not rules:
+        print("[AVISO] Nenhuma regra encontrada no parser. A usar regras embutidas.")
+        return
+
+
+    print(f"[OK] {len(rules)} regras lidas de {filepath}")
+    return rules
+
+
+
+
+NOISE_PROB    = 0.05
+N_PER_CF_UNIT = 15
+
+
+
+
+def generate_example(positive_syms, negated_syms, level, noise=NOISE_PROB):
+    row = {s: 0 for s in SINTOMAS}
+    for s in positive_syms:
+        if s in row:
+            row[s] = 1
+    for s in negated_syms:
+        if s in row:
+            row[s] = 0
+    for s in SINTOMAS:
+        if s not in positive_syms and s not in negated_syms:
+            if random.random() < noise:
+                row[s] = 1
+    row['nivel'] = level
+    return row
+
+
+
+
+def generate_dataset(rules, output_file='triagens.csv', seed=42):
+    random.seed(seed)
+    rows = []
+
+
+    positive_rules = [r for r in rules if r['cf'] > 0]
+
+
+    for rule in positive_rules:
+        n = max(5, round(rule['cf'] * N_PER_CF_UNIT))
+        for _ in range(n):
+            rows.append(generate_example(rule['positive_syms'], rule['negated_syms'], rule['level']))
+
+
+    for _ in range(25):
+        row = {s: 0 for s in SINTOMAS}
+        if random.random() < 0.4:
+            row['mal_estar'] = 1
+        if random.random() < 0.3:
+            row['constipacao'] = 1
+        if random.random() < 0.2:
+            row['febre_baixa'] = 1
+        row['nivel'] = 'sem_sintomas_alarme'
+        rows.append(row)
+
+
+    random.shuffle(rows)
+
+
+    with open(output_file, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=SINTOMAS + ['nivel'])
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+    from collections import Counter
+    counts = Counter(r['nivel'] for r in rows)
+    print(f"[OK] Dataset gerado: {len(rows)} exemplos -> {output_file}")
+    for nivel, n in sorted(counts.items()):
+        print(f"  {nivel}: {n}")
+
+
+
+
+if __name__ == '__main__':
+    rules = parse_rules('base_conhecimento_a.pl')
+    generate_dataset(rules)
+
+guardar_triagem.pl:
+% Grava os factos da sessao atual em triagens.csv para retreino do modelo ML.
+% CF > 0 -> 1 (presente), CF <= 0 -> 0 (ausente).
+
+
+% Ordem dos sintomas no CSV - deve coincidir com SINTOMAS em Python
+sintomas_csv([
+    sem_respiracao, sem_pulso, resp_dificuldade, hemorragia, inconsciente,
+    convulsoes, dor_peito, dor_irradia, fala_dificil, fraqueza_lado,
+    febre_alta, confusao, dor_abd, febre_bebe,
+    tosse_febre, dor_persiste, vomitos, diarreia,
+    dor_garganta, constipacao, dor_leve, febre_baixa, mal_estar
+]).
+
+
+guardar_triagem(NivelId) :-
+    sintomas_csv(Sintomas),
+    maplist(cf_para_bit, Sintomas, Bits),
+    atom_string(NivelId, NivelStr),
+    atomic_list_concat(Bits, ',', BitsCsv),
+    atomic_list_concat([BitsCsv, NivelStr], ',', Linha),
+    catch(
+        escrever_linha_csv('triagens.csv', Linha),
+        Err,
+        format('[AVISO] Nao foi possivel guardar triagem no CSV: ~w~n', [Err])
+    ).
+
+
+cf_para_bit(Sintoma, 1) :- facto(Sintoma, CF), CF > 0, !.
+cf_para_bit(_, 0).
+
+
+escrever_linha_csv(Ficheiro, Linha) :-
+    ( \+ exists_file(Ficheiro) ->
+        sintomas_csv(Sintomas),
+        maplist(atom_string, Sintomas, SintomasStr),
+        atomic_list_concat(SintomasStr, ',', Cabecalho),
+        atomic_list_concat([Cabecalho, 'nivel'], ',', CabecalhoCompleto),
+        open(Ficheiro, write, Stream),
+        writeln(Stream, CabecalhoCompleto),
+        writeln(Stream, Linha),
+        close(Stream)
+    ;
+        open(Ficheiro, append, Stream),
+        writeln(Stream, Linha),
+        close(Stream)
+    ).
+
+interface.html:
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SNS24 - Triagem Inteligente</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+
+:root {
+  --green:       #059669;
+  --green-light: #d1fae5;
+  --green-mid:   #10b981;
+  --green-dark:  #065f46;
+  --bg:          #f0fdf4;
+  --surface:     #ffffff;
+  --surface2:    #f8fafc;
+  --border:      #e2e8f0;
+  --border2:     #cbd5e1;
+  --text:        #0f172a;
+  --text-mid:    #475569;
+  --text-dim:    #94a3b8;
+  --mono:        'IBM Plex Mono', monospace;
+  --sans:        'DM Sans', sans-serif;
+  --c-em:    #dc2626;
+  --c-mu:    #ea580c;
+  --c-ur:    #d97706;
+  --c-pu:    #2563eb;
+  --c-sa:    #059669;
+}
+
+
+html, body {
+  width: 100%; min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  overflow-x: hidden;
+}
+
+
+/* ── Layout Simplificado ────────────────────────────── */
+#app {
+  display: block; /* Removemos o Grid porque os menus agora são fixed */
+  min-height: 100vh;
+  padding-top: 60px; /* Compensa exatamente a altura do topbar */
+}
+
+
+/* ── Topbar ─────────────────────────────────────────── */
+#topbar {
+  background: var(--surface);
+  border-bottom: 1.5px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 24px; gap: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: 60px;
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon {
+  width: 34px; height: 34px;
+  background: var(--green); border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; flex-shrink: 0;
+}
+.logo-text  { font-size: 14px; font-weight: 800; color: var(--text); }
+.logo-text span { color: var(--green); }
+.logo-sub   { font-size: 10.5px; color: var(--text-dim); font-weight: 500; margin-top: 1px; }
+.spacer { flex: 1; }
+
+
+.status-pill {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--green-light); border: 1px solid #a7f3d0;
+  border-radius: 20px; padding: 4px 12px;
+  font-size: 11px; font-weight: 600; color: var(--green-dark);
+}
+.status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green);
+  animation: blink 2s ease infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+
+#btn-iniciar {
+  font-family: var(--sans); font-size: 13px; font-weight: 700;
+  padding: 9px 22px; background: var(--green); color: #fff;
+  border: none; border-radius: 9px; cursor: pointer;
+  transition: all .14s;
+  box-shadow: 0 2px 8px rgba(5,150,105,.28);
+  display: flex; align-items: center; gap: 7px;
+}
+#btn-iniciar:hover  { background: #047857; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(5,150,105,.35); }
+#btn-iniciar:active { transform: translateY(0); }
+#btn-iniciar:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+
+/* ── Sidebar ─────────────────────────────────────────── */
+#sidebar {
+  background: var(--surface);
+  border-right: 1.5px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+  position: fixed; top: 60px; left: 0; z-index: 100;
+  width: 280px; /* IMPORTANTE: Como está fixed, precisamos forçar a largura */
+  height: calc(100vh - 60px);
+}
+.sb-sec { padding: 16px 18px; border-bottom: 1px solid var(--border); }
+.sb-lbl {
+  font-size: 9.5px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 11px;
+}
+
+
+/* Árvore de progresso */
+#tree-wrap { display: flex; flex-direction: column; gap: 2px; max-height: 160px; overflow-y: auto; }
+.tree-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 7px; border-radius: 7px;
+  font-size: 11.5px; font-weight: 500; transition: background .12s;
+}
+.tree-item.done    { color: var(--green); background: #f0fdf4; }
+.tree-item.active  { color: var(--green-dark); background: #bbf7d0; font-weight: 700; }
+.tree-item.pending { color: var(--text-dim); }
+.tree-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.done   .tree-dot { background: var(--green); }
+.active .tree-dot { background: var(--green-dark); box-shadow: 0 0 0 2.5px #a7f3d0; }
+.pending .tree-dot { background: var(--border2); }
+.tree-done-ans { margin-left: auto; font-family: var(--mono); font-size: 9.5px; }
+.ans-sim    { color: var(--green); }
+.ans-nao    { color: #94a3b8; }
+.ans-talvez { color: #d97706; }
+.tree-empty { font-size: 11.5px; color: var(--text-dim); padding: 4px 7px; }
+
+
+/* Nível actual */
+#sb-nivel-atual { padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.sb-nivel-vazio { font-size: 11.5px; color: var(--text-dim); padding: 4px 0; }
+.sb-nivel-card {
+  border-radius: 10px; padding: 10px 13px;
+  display: flex; align-items: center; gap: 10px; border: 1.5px solid;
+}
+.sb-nivel-emoji { font-size: 18px; flex-shrink: 0; }
+.sb-nivel-nome  { font-size: 12px; font-weight: 800; letter-spacing: .2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-nivel-sub   { font-size: 10px; color: var(--text-dim); font-weight: 500; margin-top: 1px; }
+.sb-nivel-pct   { font-family: var(--mono); font-size: 18px; font-weight: 800; flex-shrink: 0; line-height: 1; }
+
+
+/* Scores live */
+#sb-scores { flex: 1; padding: 16px 18px; overflow-y: auto; }
+.sb-score-item { margin-bottom: 12px; }
+.sb-score-head { display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 600; color: var(--text-mid); margin-bottom: 5px; }
+.sb-score-val  { font-family: var(--mono); font-weight: 700; font-size: 11px; }
+.sb-bar-bg { height: 5px; background: var(--border); border-radius: 10px; overflow: hidden; }
+.sb-bar    { height: 100%; border-radius: 10px; width: 0%; transition: width .5s cubic-bezier(.4,0,.2,1); }
+
+
+.formula-box {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 9px; padding: 11px 13px; margin-top: 4px;
+  font-size: 10.5px; color: var(--text-dim); line-height: 1.85;
+  font-family: var(--mono);
+}
+.formula-box .hl  { color: var(--green); font-weight: 600; }
+.formula-box .hl2 { color: #d97706; font-weight: 600; }
+
+
+/* ── Feed principal ─────────────────────────────────── */
+#main {
+  display: flex; flex-direction: column; overflow: visible;
+  margin-left: 280px; /* IMPORTANTE: Empurra o conteúdo principal para a direita do sidebar fixo */
+}
+
+
+#feed {
+  flex: 1; padding: 28px 32px;
+  display: flex; flex-direction: column; gap: 16px;
+  max-width: 780px; width: 100%;
+}
+
+
+/* Mensagem de sistema - pill pequeno */
+.sys-msg {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12.5px; color: var(--text-mid); font-weight: 500;
+  padding: 2px 0;
+}
+.sys-msg .sys-icon { font-size: 14px; }
+.sys-msg.err  { color: #dc2626; }
+.sys-msg.ok   { color: var(--green); font-weight: 600; }
+.sys-msg.warn { color: #d97706; }
+.sys-msg.ml   { color: #7c3aed; }
+
+
+/* Spinner */
+.spin-row { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--text-dim); }
+.spin {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid var(--border2); border-top-color: var(--green);
+  border-radius: 50%; animation: spin .55s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+
+/* ── Card de boas-vindas ─────────────────────────────── */
+.welcome-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 16px; padding: 28px 30px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.06);
+}
+.welcome-title {
+  font-size: 22px; font-weight: 800; color: var(--text);
+  margin-bottom: 4px; letter-spacing: -.3px;
+}
+.welcome-sub { font-size: 13px; color: var(--text-mid); margin-bottom: 20px; }
+.welcome-tips {
+  display: flex; flex-direction: column; gap: 9px;
+}
+.tip-row {
+  display: flex; align-items: flex-start; gap: 11px;
+  font-size: 13px; color: var(--text-mid); font-weight: 500; line-height: 1.45;
+}
+.tip-icon {
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 14px;
+  background: var(--green-light);
+}
+
+
+/* ── Card de pergunta ────────────────────────────────── */
+.pergunta-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.06);
+  overflow: hidden;
+  animation: slideIn .22s ease;
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.pergunta-card.respondida {
+  border-color: #e2e8f0;
+  box-shadow: none;
+  opacity: .85;
+}
+
+
+.pq-topo {
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  background: #fafcff;
+  display: flex; align-items: center; gap: 10px;
+}
+.pq-num-badge {
+  font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
+  color: var(--text-dim); background: var(--border); border-radius: 5px; padding: 2px 8px;
+  flex-shrink: 0;
+}
+
+
+.pq-body { padding: 20px 22px; }
+.pq-sintoma-texto {
+  font-size: 18px; font-weight: 700; color: var(--text);
+  line-height: 1.35; letter-spacing: -.2px; margin-bottom: 14px;
+}
+
+
+/* Botão "Porquê" */
+.pq-why-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--sans); font-size: 12px; font-weight: 600;
+  color: var(--text-dim); background: var(--surface2);
+  border: 1px solid var(--border2); border-radius: 8px; padding: 5px 13px;
+  cursor: pointer; transition: all .12s;
+}
+.pq-why-btn:hover { border-color: var(--green); color: var(--green); background: var(--green-light); }
+.pq-why-text {
+  margin-top: 14px; padding: 13px 16px;
+  background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px;
+  font-size: 13px; color: #78350f; line-height: 1.6;
+  display: none;
+}
+.pq-why-text.aberto { display: block; animation: fadeIn .15s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+
+
+/* Resposta inline no card */
+.pq-resposta {
+  margin: 0 22px 18px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; border-radius: 10px; border: 1.5px solid;
+  font-size: 13px; font-weight: 600;
+  animation: fadeIn .18s ease;
+}
+.pq-resposta.resp-sim    { background: #f0fdf4; border-color: #86efac; color: #15803d; }
+.pq-resposta.resp-nao    { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+.pq-resposta.resp-talvez { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+.pq-resp-icon  { font-size: 16px; }
+.pq-resp-label { font-size: 14px; font-weight: 800; }
+.pq-resp-cert  { margin-left: auto; font-family: var(--mono); font-size: 12px; opacity: .75; }
+
+
+/* ── Card de instrução ───────────────────────────────── */
+.info-card {
+  background: var(--green-light);
+  border: 1.5px solid #a7f3d0;
+  border-radius: 14px; padding: 16px 20px;
+  display: flex; gap: 13px; align-items: flex-start;
+  animation: slideIn .2s ease;
+}
+.info-card-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+.info-card-title { font-size: 13.5px; font-weight: 700; color: var(--green-dark); margin-bottom: 5px; }
+.info-card-body  { font-size: 12.5px; color: #065f46; line-height: 1.6; }
+.info-chip-row   { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+.info-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 11px; border-radius: 7px; font-size: 12px; font-weight: 600;
+  border: 1px solid;
+}
+.ic-sim    { background: #dcfce7; border-color: #86efac; color: #15803d; }
+.ic-nao    { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+.ic-talvez { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+.ic-cert   { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+
+
+/* ── Card de resultado ───────────────────────────────── */
+.result-card {
+  background: var(--surface); border: 2px solid var(--border);
+  border-radius: 18px; overflow: hidden;
+  box-shadow: 0 8px 28px rgba(0,0,0,.1);
+  animation: slideIn .25s ease;
+}
+.rc-nivel-emergencia    { border-color: var(--c-em); }
+.rc-nivel-muito_urgente { border-color: var(--c-mu); }
+.rc-nivel-urgente       { border-color: var(--c-ur); }
+.rc-nivel-pouco_urgente { border-color: var(--c-pu); }
+.rc-nivel-sem_sintomas_alarme { border-color: var(--c-sa); }
+
+
+.rc-header { padding: 22px 26px 18px; display: flex; align-items: flex-start; gap: 16px; }
+.rc-nivel-emergencia    .rc-header { background: #fff5f5; }
+.rc-nivel-muito_urgente .rc-header { background: #fff7ed; }
+.rc-nivel-urgente       .rc-header { background: #fffbeb; }
+.rc-nivel-pouco_urgente .rc-header { background: #eff6ff; }
+.rc-nivel-sem_sintomas_alarme .rc-header { background: var(--green-light); }
+
+
+.rc-badge  { font-size: 17px; font-weight: 800; letter-spacing: .2px; margin-bottom: 4px; }
+.rc-nivel-emergencia    .rc-badge { color: var(--c-em); }
+.rc-nivel-muito_urgente .rc-badge { color: var(--c-mu); }
+.rc-nivel-urgente       .rc-badge { color: var(--c-ur); }
+.rc-nivel-pouco_urgente .rc-badge { color: var(--c-pu); }
+.rc-nivel-sem_sintomas_alarme .rc-badge { color: var(--c-sa); }
+
+
+.rc-confianca { margin-left: auto; text-align: right; flex-shrink: 0; }
+.rc-pct       { font-family: var(--mono); font-size: 30px; font-weight: 700; color: var(--text); line-height: 1; }
+.rc-pct-label { font-size: 9.5px; color: var(--text-dim); font-weight: 700; letter-spacing: .6px; text-transform: uppercase; margin-top: 2px; }
+.rc-rec       { font-size: 13px; font-weight: 600; color: var(--text-mid); }
+
+
+.rc-body { padding: 18px 26px 22px; display: flex; flex-direction: column; gap: 20px; }
+.rc-sec-title { font-size: 9.5px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px; }
+
+
+/* Scores */
+.scores-list { display: flex; flex-direction: column; gap: 9px; }
+.score-row   { display: flex; align-items: center; gap: 10px; }
+.score-name  { font-size: 11.5px; font-weight: 600; color: var(--text-mid); min-width: 130px; }
+.score-name.rec { font-weight: 800; }
+.score-bar-bg   { flex: 1; height: 8px; background: var(--border); border-radius: 10px; overflow: hidden; }
+.score-bar-fill { height: 100%; border-radius: 10px; width: 0%; transition: width .7s cubic-bezier(.4,0,.2,1); }
+.score-pct-val  { font-family: var(--mono); font-size: 12px; font-weight: 700; min-width: 36px; text-align: right; }
+.score-rec-tag  { font-size: 9.5px; font-weight: 700; padding: 2px 8px; border-radius: 5px; flex-shrink: 0; color: #fff; }
+
+
+/* Justificação */
+.just-regra      { font-size: 12.5px; color: var(--text-mid); margin-bottom: 8px; }
+.just-regra strong { color: var(--text); }
+.just-prem-list  { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.prem-chip { font-size: 11.5px; font-weight: 500; padding: 3px 11px; border-radius: 20px; }
+.prem-chip.presente { background: var(--green-light); color: var(--green-dark); border: 1px solid #a7f3d0; }
+.prem-chip.ausente  { background: #f1f5f9; color: #64748b; border: 1px solid var(--border2); text-decoration: line-through; }
+.just-expl { font-size: 13px; color: var(--text); line-height: 1.65; font-weight: 500; }
+
+
+/* Regras secundárias */
+.sec-list { display: flex; flex-direction: column; gap: 7px; margin-top: 8px; }
+.sec-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 13px; font-size: 12px; color: var(--text-mid); line-height: 1.55; }
+.sec-item-head { display: flex; gap: 8px; align-items: center; margin-bottom: 3px; }
+.sec-id  { font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--text); }
+.sec-pct { font-family: var(--mono); font-size: 11.5px; color: var(--green); font-weight: 700; }
+
+
+/* Sintomas confirmados */
+.sint-list { display: flex; flex-direction: column; gap: 6px; }
+.sint-item { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--text-mid); font-weight: 500; }
+.sint-dot  { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+.sint-cf   { margin-left: auto; font-family: var(--mono); font-size: 10.5px; color: var(--text-dim); }
+
+
+/* ── Card de validação ───────────────────────────────── */
+.val-card {
+  background: var(--surface); border: 1.5px solid var(--green);
+  border-radius: 14px; padding: 18px 22px;
+  box-shadow: 0 2px 10px rgba(5,150,105,.1);
+  animation: slideIn .2s ease;
+}
+.val-title { font-size: 9.5px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: var(--green); margin-bottom: 4px; }
+.val-sub   { font-size: 13px; color: var(--text-mid); font-weight: 500; margin-bottom: 14px; line-height: 1.5; }
+.val-btns  { display: flex; gap: 8px; flex-wrap: wrap; }
+.val-card.used { opacity: .5; pointer-events: none; }
+
+
+.btn-val { font-family: var(--sans); font-size: 13px; font-weight: 700; padding: 9px 20px; border-radius: 9px; border: 1.5px solid; cursor: pointer; transition: all .12s; display: flex; align-items: center; gap: 6px; }
+.btn-val-ok   { border-color: var(--green); color: var(--green);  background: var(--green-light); }
+.btn-val-ok:hover   { background: #a7f3d0; }
+.btn-val-err  { border-color: #dc2626; color: #dc2626; background: #fff5f5; }
+.btn-val-err:hover  { background: #fee2e2; }
+.btn-val-skip { border-color: var(--border2); color: var(--text-dim); background: var(--surface2); }
+.btn-val-skip:hover { border-color: var(--text-mid); }
+
+
+.val-levels   { display: none; flex-direction: column; gap: 5px; margin-top: 12px; }
+.val-levels.open { display: flex; }
+.btn-lvl { font-family: var(--sans); font-size: 12.5px; font-weight: 600; padding: 8px 14px; border-radius: 8px; border: 1.5px solid var(--border); color: var(--text-mid); background: var(--surface2); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 9px; transition: all .12s; }
+.btn-lvl:hover { border-color: var(--green); color: var(--text); background: var(--green-light); }
+.lvl-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+
+/* ── Área de input (sticky bottom) ──────────────────── */
+#input-area {
+  background: var(--surface); border-top: 1.5px solid var(--border);
+  padding: 0; display: none; flex-direction: column;
+  box-shadow: 0 -2px 16px rgba(0,0,0,.07);
+  position: sticky; bottom: 0; z-index: 50;
+}
+#input-area.active { display: flex; }
+
+
+#q-bar {
+  padding: 12px 28px 10px;
+  background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+  border-bottom: 1px solid #a7f3d0;
+  display: flex; align-items: center; gap: 10px;
+}
+.q-tag {
+  font-size: 9px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--green-dark); background: #a7f3d0; border-radius: 5px; padding: 3px 8px; flex-shrink: 0;
+}
+#q-text { font-size: 13.5px; font-weight: 700; color: var(--green-dark); }
+
+
+#btn-area { padding: 12px 28px 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+
+.btn-resp {
+  font-family: var(--sans); font-size: 13px; font-weight: 700;
+  padding: 10px 20px; border-radius: 10px; border: 1.5px solid;
+  cursor: pointer; transition: all .13s;
+  display: flex; align-items: center; gap: 7px;
+}
+.btn-resp:disabled { opacity: .35; cursor: not-allowed; }
+.btn-resp:not(:disabled):hover  { transform: translateY(-1px); }
+.btn-resp:not(:disabled):active { transform: scale(.97); }
+
+
+.btn-sim    { background: #dcfce7; border-color: #16a34a; color: #15803d; }
+.btn-sim:not(:disabled):hover    { background: #bbf7d0; box-shadow: 0 3px 14px rgba(22,163,74,.22); }
+.btn-nao    { background: #fef2f2; border-color: #dc2626; color: #b91c1c; }
+.btn-nao:not(:disabled):hover    { background: #fee2e2; box-shadow: 0 3px 14px rgba(220,38,38,.2); }
+.btn-talvez { background: #fefce8; border-color: #ca8a04; color: #92400e; }
+.btn-talvez:not(:disabled):hover { background: #fef9c3; }
+.btn-pq     { background: var(--surface2); border-color: var(--border2); color: var(--text-mid); font-size: 12.5px; padding: 10px 16px; }
+.btn-pq:not(:disabled):hover { border-color: var(--green); color: var(--green); background: var(--green-light); }
+
+
+.divider-v { width: 1px; height: 32px; background: var(--border); flex-shrink: 0; }
+
+
+.cert-group { display: flex; align-items: center; gap: 9px; font-size: 11.5px; color: var(--text-dim); font-weight: 600; }
+.cert-slider {
+  -webkit-appearance: none; appearance: none;
+  width: 100px; height: 5px; background: var(--border); border-radius: 3px; outline: none;
+}
+.cert-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--green); cursor: pointer; border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(5,150,105,.4);
+}
+.cert-val  { color: var(--green); font-weight: 700; font-family: var(--mono); min-width: 32px; font-size: 12px; }
+.btn-cert  { font-family: var(--sans); font-size: 12px; font-weight: 700; padding: 8px 14px; border-radius: 8px; border: 1.5px solid var(--border2); color: var(--text-mid); background: var(--surface2); cursor: pointer; transition: all .12s; }
+.btn-cert:hover    { border-color: var(--green); color: var(--green); background: var(--green-light); }
+.btn-cert:disabled { opacity: .35; cursor: not-allowed; }
+
+
+/* Mensagem final */
+.msg-final {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 12px; padding: 14px 18px;
+  font-size: 13px; color: var(--text-mid); font-weight: 500; line-height: 1.55;
+}
+.msg-final strong { color: var(--c-em); }
+</style>
+</head>
+<body>
+<div id="app">
+
+
+  <header id="topbar">
+    <div class="logo">
+      <div class="logo-icon">🏥</div>
+      <div>
+        <div class="logo-text">SNS<span>24</span> Triagem</div>
+        <div class="logo-sub">Parte A (MYCIN) + Parte B (ML · DT)</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="status-pill">
+      <div class="status-dot"></div>
+      <span>MYCIN activo</span>
+    </div>
+    <button id="btn-iniciar" onclick="iniciar()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      Iniciar Triagem
+    </button>
+  </header>
+
+
+  <aside id="sidebar">
+    <div class="sb-sec">
+      <div class="sb-lbl">Progresso · Sintomas</div>
+      <div id="tree-wrap">
+        <div class="tree-empty">Triagem não iniciada</div>
+      </div>
+    </div>
+
+
+    <div id="sb-nivel-atual">
+      <div class="sb-lbl">Nível Atual</div>
+      <div id="nivel-atual-content">
+        <div class="sb-nivel-vazio">Inicie uma triagem.</div>
+      </div>
+    </div>
+
+
+    <div id="sb-scores">
+      <div class="sb-lbl">Scores MYCIN em tempo real</div>
+      <div id="scores-live">
+        <div style="font-size:11.5px;color:var(--text-dim)">Inicie uma triagem para ver os scores.</div>
+      </div>
+      <div class="formula-box" style="margin-top:14px">
+        <span class="hl">CF_Final</span> = <span class="hl2">CF_prem</span> × CF_regra &nbsp;(limiar: <span class="hl">0.20</span>)<br>
+        AND: <span class="hl">min(CFs)</span> &nbsp;·&nbsp; nao(S): <span class="hl">−CF(S)</span><br>
+        <span class="hl">++</span>: a+b−ab &nbsp; <span class="hl">−−</span>: a+b+ab &nbsp; <span class="hl2">±</span>: (a+b)/(1−min|a|,|b|)<br>
+        Saída antecipada: <span class="hl">0.80</span> &nbsp;·&nbsp; CF neg = contra-evidência
+      </div>
+    </div>
+  </aside>
+
+
+  <main id="main">
+    <div id="feed">
+      <div class="welcome-card" id="welcome-card">
+        <div class="welcome-title">Sistema de Triagem SNS24</div>
+        <div class="welcome-sub">Motor MYCIN (Parte A) + Machine Learning (Parte B)</div>
+        <div class="welcome-tips">
+          <div class="tip-row">
+            <div class="tip-icon">▶</div>
+            <div>Clique em <strong>Iniciar Triagem</strong> para começar. O sistema irá perguntar sobre os seus sintomas um a um.</div>
+          </div>
+          <div class="tip-row">
+            <div class="tip-icon">💡</div>
+            <div>Em cada pergunta pode pedir uma <strong>explicação clínica</strong> antes de responder.</div>
+          </div>
+          <div class="tip-row">
+            <div class="tip-icon">📊</div>
+            <div>A barra lateral mostra os <strong>scores MYCIN em tempo real</strong> à medida que responde.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <div id="input-area">
+      <div id="q-bar">
+        <span class="q-tag">Sintoma</span>
+        <span id="q-text">-</span>
+      </div>
+      <div id="btn-area">
+        <button class="btn-resp btn-sim"    onclick="responder('sim',    100)">✓ &nbsp;SIM</button>
+        <button class="btn-resp btn-nao"    onclick="responder('nao',    100)">✗ &nbsp;NÃO</button>
+        <button class="btn-resp btn-talvez" onclick="responder('talvez', 50 )">≈ &nbsp;TALVEZ</button>
+        <button class="btn-resp btn-pq"     onclick="mostrarPorque()" id="btn-pq">💡 Porquê?</button>
+        <div class="divider-v"></div>
+        <div class="cert-group">
+          Certeza:
+          <input type="range" class="cert-slider" id="cert-slider" min="0" max="100" value="80"
+                 oninput="document.getElementById('cert-disp').textContent=this.value+'%'">
+          <span class="cert-val" id="cert-disp">80%</span>
+          <button class="btn-cert" id="btn-sim-cert" onclick="responderComCerteza('sim')">✓ Sim</button>
+          <button class="btn-cert" id="btn-nao-cert" onclick="responderComCerteza('nao')">✗ Não</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// ESTADO
+// ═══════════════════════════════════════════════════════════════
+let sintoma       = null;
+let explicacao    = '';
+let busy          = false;
+let historico     = [];
+let scoresActuais = {};
+let numPergunta   = 0;
+let cartaoAtual   = null; // referência ao cartão de pergunta activo
+
+
+const NIVEL_LABELS = {
+  emergencia:          '🔴 EMERGÊNCIA',
+  muito_urgente:       '🟠 MUITO URGENTE',
+  urgente:             '🟡 URGENTE',
+  pouco_urgente:       '🔵 POUCO URGENTE',
+  sem_sintomas_alarme: '🟢 SEM ALARME'
+};
+const NIVEL_CORES = {
+  emergencia:          'var(--c-em)',
+  muito_urgente:       'var(--c-mu)',
+  urgente:             'var(--c-ur)',
+  pouco_urgente:       'var(--c-pu)',
+  sem_sintomas_alarme: 'var(--c-sa)'
+};
+const NIVEL_LISTA = [
+  {id:'emergencia',          label:'🔴 Emergência'},
+  {id:'muito_urgente',       label:'🟠 Muito Urgente'},
+  {id:'urgente',             label:'🟡 Urgente'},
+  {id:'pouco_urgente',       label:'🔵 Pouco Urgente'},
+  {id:'sem_sintomas_alarme', label:'🟢 Sem Alarme'},
+];
+
+
+// ═══════════════════════════════════════════════════════════════
+// DOM HELPERS
+// ═══════════════════════════════════════════════════════════════
+const feed   = () => document.getElementById('feed');
+const inputs = () => document.getElementById('input-area');
+const qtxt   = () => document.getElementById('q-text');
+
+
+function scrollFim() {
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => window.scrollTo(0, document.body.scrollHeight))
+  );
+}
+function scrollToEl(el) {
+  setTimeout(() => {
+    const r = el.getBoundingClientRect();
+    window.scrollTo(0, window.scrollY + r.top - 80);
+  }, 60);
+}
+
+
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+
+function addMsg(html, tipo = '') {
+  const d = document.createElement('div');
+  d.className = 'sys-msg' + (tipo ? ' ' + tipo : '');
+  d.innerHTML = html;
+  feed().appendChild(d);
+  return d;
+}
+
+
+function addSpinner(txt) {
+  const d = document.createElement('div');
+  d.className = 'spin-row';
+  d.id = 'spinner-row';
+  d.innerHTML = `<div class="spin"></div><span>${esc(txt)}</span>`;
+  feed().appendChild(d);
+  return d;
+}
+function remSpinner() {
+  const el = document.getElementById('spinner-row');
+  if (el) el.remove();
+}
+
+
+function setBusy(v) {
+  busy = v;
+  document.querySelectorAll('.btn-resp, .btn-cert').forEach(b => b.disabled = v);
+  document.getElementById('btn-iniciar').disabled = v;
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// SIDEBAR
+// ═══════════════════════════════════════════════════════════════
+function renderTree() {
+  const w = document.getElementById('tree-wrap');
+  w.innerHTML = '';
+  historico.forEach(h => {
+    const d = document.createElement('div');
+    d.className = 'tree-item done';
+    const desc = h.desc.length > 26 ? h.desc.slice(0,26)+'…' : h.desc;
+    const ansCls = h.tipo === 'sim' ? 'ans-sim' : h.tipo === 'nao' ? 'ans-nao' : 'ans-talvez';
+    d.innerHTML = `<div class="tree-dot"></div>
+      <span style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:160px" title="${esc(h.desc)}">${esc(desc)}</span>
+      <span class="tree-done-ans ${ansCls}">${esc(h.label)}</span>`;
+    w.appendChild(d);
+  });
+  if (sintoma) {
+    const d = document.createElement('div');
+    d.className = 'tree-item active';
+    const desc = qtxt().textContent;
+    const short = desc.length > 26 ? desc.slice(0,26)+'…' : desc;
+    d.innerHTML = `<div class="tree-dot"></div><span>${esc(short)}</span>`;
+    w.appendChild(d);
+  }
+  if (!historico.length && !sintoma) {
+    w.innerHTML = '<div class="tree-empty">Triagem não iniciada</div>';
+  }
+}
+
+
+function renderScoresLive(scoresArr) {
+  if (!scoresArr || !scoresArr.length) return;
+  const el = document.getElementById('scores-live');
+  el.innerHTML = '';
+  const ordem = ['emergencia','muito_urgente','urgente','pouco_urgente','sem_sintomas_alarme'];
+  const sorted = [...scoresArr].sort((a,b) => ordem.indexOf(a.nivel_id) - ordem.indexOf(b.nivel_id));
+  sorted.forEach(s => {
+    const neg   = s.score_pct < 0;
+    const color = neg ? 'var(--text-dim)' : (NIVEL_CORES[s.nivel_id] || 'var(--green)');
+    const label = neg ? `▽ ${s.score_pct}%` : `${s.score_pct}%`;
+    const barPct = Math.max(0, s.score_pct);
+    const item = document.createElement('div');
+    item.className = 'sb-score-item';
+    item.innerHTML = `
+      <div class="sb-score-head">
+        <span style="color:${color}">${esc(s.nivel_txt)}</span>
+        <span class="sb-score-val" style="color:${color}">${label}</span>
+      </div>
+      <div class="sb-bar-bg"><div class="sb-bar" data-pct="${barPct}" style="background:${color};width:0%"></div></div>`;
+    el.appendChild(item);
+  });
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      el.querySelectorAll('.sb-bar').forEach(b => b.style.width = b.dataset.pct + '%');
+    })
+  );
+  renderNivelAtual(scoresArr);
+}
+
+
+function renderNivelAtual(scoresArr) {
+  const el = document.getElementById('nivel-atual-content');
+  if (!scoresArr || !scoresArr.length) {
+    el.innerHTML = '<div class="sb-nivel-vazio">Inicie uma triagem.</div>';
+    return;
+  }
+  const sorted = [...scoresArr].sort((a,b) => b.score_pct - a.score_pct);
+  const top = sorted[0];
+  if (!top || top.score_pct === 0) {
+    el.innerHTML = '<div class="sb-nivel-vazio">A aguardar respostas…</div>';
+    return;
+  }
+  const cor = NIVEL_CORES[top.nivel_id] || 'var(--green)';
+  const emojis = { emergencia:'🔴', muito_urgente:'🟠', urgente:'🟡', pouco_urgente:'🔵', sem_sintomas_alarme:'🟢' };
+  const bgMap  = { emergencia:'#fff5f5', muito_urgente:'#fff7ed', urgente:'#fffbeb', pouco_urgente:'#eff6ff', sem_sintomas_alarme:'#f0fdf4' };
+  el.innerHTML = `
+    <div class="sb-nivel-card" style="border-color:${cor};background:${bgMap[top.nivel_id]||'#f8fafc'}">
+      <div class="sb-nivel-emoji">${emojis[top.nivel_id]||'⚪'}</div>
+      <div class="sb-nivel-info">
+        <div class="sb-nivel-nome" style="color:${cor}">${esc(top.nivel_txt)}</div>
+        <div class="sb-nivel-sub">score mais elevado</div>
+      </div>
+      <div class="sb-nivel-pct" style="color:${cor}">${top.score_pct}%</div>
+    </div>`;
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// API: INICIAR
+// ═══════════════════════════════════════════════════════════════
+async function iniciar() {
+  setBusy(true);
+  historico = []; sintoma = null; scoresActuais = {}; numPergunta = 0; cartaoAtual = null;
+  inputs().classList.remove('active');
+  renderTree();
+  document.getElementById('scores-live').innerHTML =
+    '<div style="font-size:11.5px;color:var(--text-dim)">Aguardando respostas…</div>';
+  document.getElementById('nivel-atual-content').innerHTML =
+    '<div class="sb-nivel-vazio">A aguardar respostas…</div>';
+
+
+  // Limpar feed (excepto welcome card)
+  const f = feed();
+  while (f.lastChild) f.removeChild(f.lastChild);
+
+
+  addSpinner('A ligar ao motor de inferência…');
+
+
+  try {
+    const r = await fetch('/api/start', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+    const d = await r.json();
+    remSpinner();
+    if (d.type === 'pergunta') {
+      // Card de instrução
+      const info = document.createElement('div');
+      info.className = 'info-card';
+      info.innerHTML = `
+        <div class="info-card-icon">🩺</div>
+        <div>
+          <div class="info-card-title">Triagem iniciada</div>
+          <div class="info-card-body">Para cada sintoma responda SIM, NÃO ou TALVEZ. Use o slider para ajustar a certeza.</div>
+          <div class="info-chip-row">
+            <span class="info-chip ic-sim">✓ SIM - tem o sintoma</span>
+            <span class="info-chip ic-nao">✗ NÃO - não tem</span>
+            <span class="info-chip ic-talvez">≈ TALVEZ - incerto</span>
+            <span class="info-chip ic-cert">💡 Porquê - explicação clínica</span>
+          </div>
+        </div>`;
+      f.appendChild(info);
+    }
+    tratarResp(d);
+  } catch(e) {
+    remSpinner();
+    addMsg('<span class="sys-icon">⚠️</span> Não foi possível ligar ao servidor Prolog. Verifique se o <code>server.pl</code> está a correr (<code>swipl server.pl</code>).', 'err');
+    setBusy(false);
+    document.getElementById('btn-iniciar').disabled = false;
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// API: RESPONDER
+// ═══════════════════════════════════════════════════════════════
+async function responder(tipo, certeza) {
+  if (!sintoma || busy) return;
+
+
+  const certezaNum = parseInt(certeza) || 100;
+  const cfInterno  = tipo === 'sim' ? certezaNum/100 : tipo === 'nao' ? -(certezaNum/100) : 0.0;
+
+
+  let label, respostaIcon;
+  if (tipo === 'sim') {
+    label = certezaNum < 100 ? `SIM ${certezaNum}%` : 'SIM';
+    respostaIcon = '✓';
+  } else if (tipo === 'nao') {
+    label = certezaNum < 100 ? `NÃO ${certezaNum}%` : 'NÃO';
+    respostaIcon = '✗';
+  } else {
+    label = 'TALVEZ';
+    respostaIcon = '≈';
+  }
+
+
+  historico.push({sintoma, desc: qtxt().textContent, label, tipo});
+
+
+  // Marcar o cartão actual como respondido
+  if (cartaoAtual) {
+    cartaoAtual.classList.add('respondida');
+    const badge = document.createElement('div');
+    badge.className = `pq-resposta resp-${tipo}`;
+    badge.innerHTML = `
+      <span class="pq-resp-icon">${respostaIcon}</span>
+      <span class="pq-resp-label">${esc(label)}</span>
+      <span class="pq-resp-cert">CF = ${cfInterno.toFixed(2)}</span>`;
+    cartaoAtual.appendChild(badge);
+    cartaoAtual = null;
+  }
+
+
+  const sintomaEnviar = sintoma;
+  setBusy(true);
+  inputs().classList.remove('active');
+  sintoma = null;
+  addSpinner('A calcular scores MYCIN…');
+
+
+  try {
+    const r = await fetch('/api/answer', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({sintoma: sintomaEnviar, tipo, certeza: certezaNum})
+    });
+    const d = await r.json();
+    remSpinner();
+    tratarResp(d);
+  } catch(e) {
+    remSpinner();
+    addMsg('<span class="sys-icon">⚠️</span> Falha de comunicação com o servidor.', 'err');
+    setBusy(false);
+  }
+}
+
+
+function responderComCerteza(tipo) {
+  const cert = parseInt(document.getElementById('cert-slider').value) || 80;
+  responder(tipo, cert);
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// TRATAR RESPOSTA DO SERVIDOR
+// ═══════════════════════════════════════════════════════════════
+function tratarResp(d) {
+  if (d.type === 'pergunta') {
+    mostrarPergunta(d);
+  } else if (d.type === 'resultado') {
+    mostrarResultado(d);
+  } else {
+    addMsg('<span class="sys-icon">⚠️</span> ' + esc(d.message || JSON.stringify(d)), 'err');
+    setBusy(false);
+    document.getElementById('btn-iniciar').disabled = false;
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// MOSTRAR PERGUNTA - cartão visual
+// ═══════════════════════════════════════════════════════════════
+function mostrarPergunta(d) {
+  sintoma    = d.sintoma;
+  explicacao = d.explicacao || '';
+  numPergunta++;
+
+
+  const card = document.createElement('div');
+  card.className = 'pergunta-card';
+  card.innerHTML = `
+    <div class="pq-topo">
+      <span class="pq-num-badge">Pergunta ${numPergunta}</span>
+      ${d.explicacao ? `<button class="pq-why-btn" onclick="togglePorque(this)">💡 Porquê esta pergunta?</button>` : ''}
+    </div>
+    <div class="pq-body">
+      <div class="pq-sintoma-texto">${esc(d.descricao)}</div>
+      ${d.explicacao ? `<div class="pq-why-text" id="pq-why-text-${numPergunta}">${esc(d.explicacao)}</div>` : ''}
+    </div>`;
+
+
+  feed().appendChild(card);
+  cartaoAtual = card;
+
+
+  qtxt().textContent = d.descricao;
+  const btnPq = document.getElementById('btn-pq');
+  if (btnPq) btnPq.style.display = d.explicacao ? '' : 'none';
+  inputs().classList.add('active');
+  renderTree();
+  if (d.scores) renderScoresLive(d.scores);
+  setBusy(false);
+  scrollToEl(card);
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// PORQUÊ - toggle dentro do cartão
+// ═══════════════════════════════════════════════════════════════
+function togglePorque(btn) {
+  const texto = btn.closest('.pq-body') ?
+    btn.closest('.pq-body').querySelector('.pq-why-text') :
+    btn.closest('.pergunta-card').querySelector('.pq-why-text');
+  if (!texto) return;
+  texto.classList.toggle('aberto');
+  btn.style.background = texto.classList.contains('aberto') ? '#fef9c3' : '';
+  btn.style.borderColor = texto.classList.contains('aberto') ? '#fcd34d' : '';
+  btn.style.color = texto.classList.contains('aberto') ? '#92400e' : '';
+}
+
+
+// também chamado pelo botão da input-area
+function mostrarPorque() {
+  if (cartaoAtual) {
+    const btn = cartaoAtual.querySelector('.pq-why-btn');
+    if (btn) togglePorque(btn);
+  }
+  scrollFim();
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// MOSTRAR RESULTADO
+// ═══════════════════════════════════════════════════════════════
+function mostrarResultado(d) {
+  sintoma = null;
+  inputs().classList.remove('active');
+
+
+  if (d.scores) renderScoresLive(d.scores);
+
+
+  const card = document.createElement('div');
+  card.className = `result-card rc-nivel-${d.nivel_id}`;
+  const cor = NIVEL_CORES[d.nivel_id] || 'var(--green)';
+  const j   = d.justificacao;
+
+
+  // Scores HTML
+  let scoresHTML = '';
+  if (d.scores) {
+    const ordem  = ['emergencia','muito_urgente','urgente','pouco_urgente','sem_sintomas_alarme'];
+    const sorted = [...d.scores].sort((a,b) => ordem.indexOf(a.nivel_id) - ordem.indexOf(b.nivel_id));
+    scoresHTML   = sorted.map(s => {
+      const neg    = s.score_pct < 0;
+      const c      = neg ? 'var(--text-dim)' : (NIVEL_CORES[s.nivel_id] || 'var(--green)');
+      const barPct = Math.max(0, s.score_pct);
+      const label  = neg ? `▽ ${s.score_pct}%` : `${s.score_pct}%`;
+      const rec    = s.recomendado;
+      return `<div class="score-row">
+        <span class="score-name${rec?' rec':''}" style="color:${c}">${rec?'▶ ':''}${esc(s.nivel_txt)}</span>
+        <div class="score-bar-bg"><div class="score-bar-fill" data-pct="${barPct}" style="background:${c};width:0%"></div></div>
+        <span class="score-pct-val" style="color:${c}">${label}</span>
+        ${rec ? `<span class="score-rec-tag" style="background:${c}">rec.</span>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+
+  // Premissas HTML
+  let premHTML = '';
+  if (j.premissas && j.premissas.length) {
+    premHTML = j.premissas.map(p =>
+      `<span class="prem-chip ${p.presente?'presente':'ausente'}">${p.presente?'':'✗ '}${esc(p.desc)}</span>`
+    ).join('');
+  }
+
+
+  // Sintomas confirmados HTML
+  let sintsHTML = '<em style="color:var(--text-dim);font-size:12.5px">nenhum</em>';
+  if (d.sintomas && d.sintomas.length) {
+    sintsHTML = '<div class="sint-list">' + d.sintomas.map(s =>
+      `<div class="sint-item"><div class="sint-dot"></div>${esc(s.desc)}<span class="sint-cf">CF=${s.cf_pct}%</span></div>`
+    ).join('') + '</div>';
+  }
+
+
+  // Regras secundárias HTML
+  let secHTML = '';
+  if (j.regras_secundarias && j.regras_secundarias.length) {
+    secHTML = `<div>
+      <div class="rc-sec-title">Regras Secundárias</div>
+      <div class="sec-list">${j.regras_secundarias.map(r =>
+        `<div class="sec-item">
+          <div class="sec-item-head">
+            <span class="sec-id">[${esc(r.id)}]</span>
+            <span class="sec-pct" style="color:${r.certeza_pct < 0 ? 'var(--c-em)' : 'var(--green)'}">${r.certeza_pct}%</span>
+          </div>${esc(r.explicacao)}</div>`
+      ).join('')}</div></div>`;
+  }
+
+
+  card.innerHTML = `
+    <div class="rc-header">
+      <div>
+        <div class="rc-badge">${esc(NIVEL_LABELS[d.nivel_id] || d.nivel)}</div>
+        <div class="rc-rec">${esc(d.recomendacao)}</div>
+      </div>
+      <div class="rc-confianca">
+        <div class="rc-pct">${d.confianca_pct}%</div>
+        <div class="rc-pct-label">Confiança MYCIN</div>
+      </div>
+    </div>
+    <div class="rc-body">
+      <div>
+        <div class="rc-sec-title">Scores por Nível</div>
+        <div class="scores-list">${scoresHTML}</div>
+      </div>
+      <div>
+        <div class="rc-sec-title">Regra Principal</div>
+        <div class="just-regra">Regra <strong>[${esc(j.regra_principal||'-')}]</strong> activada com <strong>${j.certeza_pct||0}%</strong> de certeza.</div>
+        ${premHTML ? `<div class="just-prem-list">${premHTML}</div>` : ''}
+        <div class="just-expl">${esc(j.explicacao || j.texto || '')}</div>
+      </div>
+      ${secHTML}
+      <div>
+        <div class="rc-sec-title">Sintomas Confirmados</div>
+        ${sintsHTML}
+      </div>
+    </div>`;
+
+
+  feed().appendChild(card);
+
+
+  // Animar barras
+  setTimeout(() => {
+    card.querySelectorAll('.score-bar-fill').forEach(el => el.style.width = el.dataset.pct + '%');
+  }, 80);
+
+
+  submeter(d.nivel_id, 'confirmado', null);
+  scrollToEl(card);
+  setBusy(false);
+}
+
+
+async function submeter(nivelId, validacao, nivelCorreto) {
+  const body = {nivel_id: nivelId, validacao};
+  if (nivelCorreto) body.nivel_correto = nivelCorreto;
+
+
+  try {
+    await fetch('/api/validate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    addMsg('<span class="sys-icon">✅</span> Triagem guardada em <code>triagens.csv</code>.', 'ok');
+  } catch(e) {
+    addMsg('<span class="sys-icon">⚠️</span> Não foi possível guardar a sessão.', 'err');
+  }
+  finalizar();
+}
+
+
+function finalizar() {
+  const msgFinal = document.createElement('div');
+  msgFinal.className = 'msg-final';
+  msgFinal.innerHTML = `
+    <p>Triagem concluída. Em caso de dúvida contacte o <strong>SNS24: 808 24 24 24</strong></p>
+    <p style="margin-top:6px">Em emergência real ligue sempre <strong style="color:var(--c-em)">112</strong>.</p>`;
+  feed().appendChild(msgFinal);
+
+
+  const btn = document.getElementById('btn-iniciar');
+  btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg> Nova Triagem`;
+  btn.disabled = false;
+  historico = []; sintoma = null; cartaoAtual = null;
+  renderTree(); scrollFim();
+}
+</script>
+</body>
+</html>
+
+interface.pl:
+perguntar(Sintoma) :-
+    ( sintoma(Sintoma, Desc) -> true ; Desc = Sintoma ),
+    nl,
+    write('  Sintoma: '), write(Desc), nl,
+    write('  Tem este sintoma? (s = SIM, n = NAO, t = NAO SEI, p = PORQUE?): '),
+    read(R),
+    processar(Sintoma, R).
+
+
+processar(Sintoma, s) :- !,
+    write('  Qual a sua certeza de que TEM o sintoma? (0 a 100, ex: 100.): '),
+    read(Certeza),
+    ( number(Certeza), Certeza >= 0, Certeza =< 100 ->
+        CF is Certeza / 100.0,
+        asserta(facto(Sintoma, CF)),
+        format('  -> Registado SIM com ~w% de certeza (CF interno = ~2f)~n', [Certeza, CF])
+    ;
+        write('  Valor invalido. A assumir 100% de certeza.'), nl,
+        asserta(facto(Sintoma, 1.0))
+    ).
+
+
+processar(Sintoma, n) :- !,
+    write('  Qual a sua certeza de que NAO TEM o sintoma? (0 a 100, ex: 100.): '),
+    read(Certeza),
+    ( number(Certeza), Certeza >= 0, Certeza =< 100 ->
+        CF is -(Certeza / 100.0),
+        asserta(facto(Sintoma, CF)),
+        format('  -> Registado NAO com ~w% de certeza (CF interno = ~2f)~n', [Certeza, CF])
+    ;
+        write('  Valor invalido. A assumir 100% de certeza de que nao tem.'), nl,
+        asserta(facto(Sintoma, -1.0))
+    ).
+
+
+processar(Sintoma, t) :- !,
+    asserta(facto(Sintoma, 0.0)),
+    write('  -> Registado NAO SEI / NEUTRO (CF interno = 0.00)'), nl.
+
+
+processar(Sintoma, p) :- !,
+    nl,
+    write('  [ PORQUE ESTA PERGUNTA? ]'), nl,
+    ( sintoma(Sintoma, Desc) -> write('  Sintoma: '), write(Desc), nl ; true ),
+    ( explicacao(Sintoma, Expl) ->
+        write('  '), write(Expl), nl
+    ;
+        write('  Este sintoma ajuda a determinar o nivel de urgencia.'), nl
+    ),
+    perguntar(Sintoma).
+
+
+processar(Sintoma, _) :- !,
+    write('  Opcao invalida. Use apenas: s. ou n. ou t. ou p.'), nl,
+    perguntar(Sintoma).
+
+main.pl:
+% Uso: swipl -g "consult(main)" main.pl
+%   ou: ?- [main].
+%   Depois: ?- iniciar.
+
+
+:- consult('base_dados.pl').
+:- consult('base_conhecimento_a.pl').
+:- consult('guardar_triagem.pl').
+:- consult('interface.pl').
+:- consult('sistema_inferencia.pl').
+
+
+:- ( exists_file('base_conhecimento_b.pl') ->
+        consult('base_conhecimento_b.pl'),
+        write('[Parte B] Base de conhecimento ML carregada.'), nl
+    ;
+        write('[Parte B] Base ML ainda nao existe. Sera gerada apos a primeira triagem.'), nl
+).
+
+
+iniciar :-
+    limpar,
+    diagnostico(NivelId),
+    nl,
+    write('Triagem concluida.'), nl,
+    write('Em caso de duvida contacte o SNS24: 808 24 24 24'), nl,
+    write('Em emergencia real ligue sempre 112.'), nl,
+    guardar_e_retreinar(NivelId),
+    limpar.
+
+
+guardar_e_retreinar(NivelId) :-
+    nl,
+    write('[Parte B] A guardar triagem no dataset...'), nl,
+    guardar_triagem(NivelId),
+    write('[Parte B] Triagem guardada em triagens.csv'), nl,
+    retreinar_modelo.
+
+
+retreinar_modelo :-
+    ( \+ exists_file('triagens.csv') ->
+        write('[Parte B] A gerar dataset inicial...'), nl,
+        correr_python('gerar_dataset.py', _)
+    ; true ),
+    write('[Parte B] A retreinar modelo ML...'), nl,
+    (   correr_python('treinar_exportar.py', 0)
+    ->  recarregar_base_b,
+        write('[Parte B] Modelo retreinado com sucesso.'), nl
+    ;   write('[Parte B] [AVISO] Retreino falhou (Python indisponivel ou erro).'), nl,
+        write('[Parte B] O sistema continua a funcionar com o modelo anterior.'), nl
+    ).
+
+
+% Tenta python3 e depois python como fallback (compatibilidade Windows/Linux).
+correr_python(Script, CodigoEsperado) :-
+    atomic_list_concat(['python3 ', Script], Cmd3),
+    atomic_list_concat(['python ',  Script], Cmd2),
+    (   catch(shell(Cmd3, CodigoEsperado), _, fail) -> true
+    ;   catch(shell(Cmd2, CodigoEsperado), _, fail)
+    ).
+
+
+recarregar_base_b :-
+    ( exists_file('base_conhecimento_b.pl') ->
+        catch(unload_file('base_conhecimento_b.pl'), _, true),
+        consult('base_conhecimento_b.pl'),
+        write('[Parte B] base_conhecimento_b.pl recarregado.'), nl
+    ;
+        write('[Parte B] [AVISO] base_conhecimento_b.pl nao encontrado apos treino.'), nl
+    ).
+
+
+ajuda :-
+    nl,
+    write('Comandos disponiveis:'), nl,
+    write('  iniciar.        - inicia nova triagem (e retreina modelo ML no final)'), nl,
+    write('  retreinar.      - forca retreino manual do modelo ML'), nl,
+    write('  ajuda.          - mostra esta mensagem'), nl,
+    write('  halt.           - sai do sistema'), nl,
+    nl,
+    write('Durante a triagem:'), nl,
+    write('  s.              - SIM (certeza total, CF=1.0)'), nl,
+    write('  n.              - NAO (CF=-1.0)'), nl,
+    write('  t.              - NAO SEI (incerto, CF=0.0)'), nl,
+    write('  p.              - PORQUE? (explicacao clinica)'), nl,
+    write('  Certeza: valor de 0 a 100 (ex: 80.)'), nl,
+    write('IMPORTANTE: sempre terminar com ponto final (.)'), nl.
+
+
+retreinar :-
+    nl,
+    write('A forcar retreino manual do modelo ML...'), nl,
+    retreinar_modelo.
+
+
+:- initialization((
+    nl,
+    write('========================================'), nl,
+    write('     SISTEMA DE TRIAGEM SNS24           '), nl,
+    write('  Parte A (manual) + Parte B (ML)       '), nl,
+    write('========================================'), nl,
+    write('Sistema carregado. Use iniciar. para comecar.'), nl,
+    write('Use ajuda. para ver todos os comandos.'), nl,
+    write('========================================'), nl
+)).
+
+server.pl:
+% SNS24 Triagem HTTP Server
+%
+% Uso: swipl server.pl   <- abre http://localhost:8080
+%      Para parar: escrever q + Enter no mesmo terminal
+%
+% Endpoints:
+%   POST /api/start    - inicia triagem, devolve primeira pergunta
+%   POST /api/answer   - responde sintoma, devolve pergunta ou resultado
+%   POST /api/validate - guarda triagem no CSV (online learning)
+
+
+:- use_module(library(http/thread_httpd)).
+:- use_module(library(http/http_dispatch)).
+:- use_module(library(http/http_json)).
+:- use_module(library(http/http_files)).
+
+
+server_dir(Dir) :-
+    (   source_file(Src),
+        file_base_name(Src, 'server.pl'),
+        file_directory_name(Src, Dir)
+    ->  true
+    ;   working_directory(Dir, Dir)
+    ).
+
+
+:- server_dir(SD),
+   atomic_list_concat([SD, '/base_dados.pl'], P1),
+   ( exists_file(P1) -> consult(P1)
+   ; format(user_error, '[ERRO] Nao encontrado: ~w~n', [P1]) ).
+
+
+:- server_dir(SD),
+   atomic_list_concat([SD, '/base_conhecimento_a.pl'], P2),
+   ( exists_file(P2) -> consult(P2)
+   ; format(user_error, '[ERRO] Nao encontrado: ~w~n', [P2]) ).
+
+
+:- server_dir(SD),
+   atomic_list_concat([SD, '/guardar_triagem.pl'], P3),
+   ( exists_file(P3) -> consult(P3)
+   ; format(user_error, '[AVISO] guardar_triagem.pl nao encontrado.~n', []) ).
+
+
+:- server_dir(SD),
+   atomic_list_concat([SD, '/sistema_inferencia.pl'], P4),
+   ( exists_file(P4) -> consult(P4)
+   ; format(user_error, '[ERRO] Nao encontrado: ~w~n', [P4]) ).
+
+
+:- server_dir(SD),
+   atomic_list_concat([SD, '/base_conhecimento_b.pl'], P5),
+   ( exists_file(P5) ->
+       consult(P5),
+       format(user_error, '[Parte B] Base ML carregada.~n', [])
+   ;   format(user_error, '[Parte B] base_conhecimento_b.pl nao encontrada (opcional).~n', [])
+   ).
+
+
+:- dynamic session_sintomas/1.
+
+
+% ----------------------------------------------------------------
+% ROTAS HTTP
+% ----------------------------------------------------------------
+
+
+:- http_handler(root(.),            serve_index,     []).
+:- http_handler(root('interface.html'), serve_index,     []).
+:- http_handler(root(api/start),    handle_start,    [method(post)]).
+:- http_handler(root(api/answer),   handle_answer,   [method(post)]).
+:- http_handler(root(api/validate), handle_validate, [method(post)]).
+
+
+serve_index(Request) :-
+    server_dir(Dir),
+    atomic_list_concat([Dir, '/interface.html'], P),
+    http_reply_file(P, [unsafe(true)], Request).
+
+
+% POST /api/start
+% with_output_to suprime qualquer write/nl dos modulos para nao poluir o socket HTTP.
+handle_start(_Request) :-
+    catch(
+        with_output_to(string(_),
+            with_mutex(sns_mutex, (
+                limpar,
+                obter_ordem_sintomas(Sintomas),
+                retractall(session_sintomas(_)),
+                assertz(session_sintomas(Sintomas)),
+                proximo_passo(Resp)
+            ))
+        ),
+        Err,
+        ( term_string(Err, ErrS), Resp = _{type:"error", message:ErrS} )
+    ),
+    reply_json_dict(Resp).
+
+
+% POST /api/answer
+% Body JSON: { "sintoma": "dor_peito", "tipo": "sim"|"nao"|"talvez", "certeza": 0-100 }
+handle_answer(Request) :-
+    catch(
+        handle_answer_safe(Request),
+        Err,
+        ( term_string(Err, ErrS), reply_json_dict(_{type:"error", message:ErrS}) )
+    ).
+
+
+handle_answer_safe(Request) :-
+    http_read_json_dict(Request, Dict, []),
+
+
+    get_dict(sintoma, Dict, SR),
+    ( atom(SR) -> SA = SR ; atom_string(SA, SR) ),
+
+
+    ( get_dict(tipo, Dict, TR) ->
+        ( atom(TR) -> Tipo = TR ; atom_string(Tipo, TR) )
+    ;   Tipo = sim ),
+
+
+    ( get_dict(certeza, Dict, CertR) ->
+        ( number(CertR) -> Cert = CertR ; atom_number(CertR, Cert) )
+    ;   Cert = 100.0 ),
+
+
+    tipo_para_cf(Tipo, Cert, CFInterno),
+
+
+    catch(
+        with_output_to(string(_),
+            with_mutex(sns_mutex, (
+                retractall(facto(SA, _)),
+                assertz(facto(SA, CFInterno)),
+
+
+                ( session_sintomas([_|Resto]) ->
+                    retractall(session_sintomas(_)),
+                    assertz(session_sintomas(Resto))
+                ;   retractall(session_sintomas(_)),
+                    assertz(session_sintomas([]))
+                ),
+
+
+                todos_niveis(Niveis),
+                calcular_scores_finais(Niveis, Scores),
+                score_max_val(Scores, MaxCF),
+                limiar_saida(Limiar),
+                session_sintomas(Resto2),
+
+
+                ( (Resto2 = [] ; MaxCF >= Limiar) ->
+                    construir_resultado(Scores, Resp)
+                ;
+                    proximo_passo(Resp)
+                )
+            ))
+        ),
+        Err2,
+        ( term_string(Err2, ErrS2), Resp = _{type:"error", message:ErrS2} )
+    ),
+    reply_json_dict(Resp).
+
+
+% sim -> CF positivo, nao -> CF negativo (activa premissas nao(S)), talvez -> 0.
+tipo_para_cf(sim,    Cert, CF) :- !, CF is  Cert / 100.0.
+tipo_para_cf(nao,    Cert, CF) :- !, CF is -(Cert / 100.0).
+tipo_para_cf(talvez, _,    0.0) :- !.
+tipo_para_cf(_,      _,    0.0).
+
+
+% POST /api/validate
+% Body JSON: { "nivel_id": "urgente", "validacao": "confirmado"|"corrigido"|"skip", "nivel_correto": "..." }
+handle_validate(Request) :-
+    catch(
+        handle_validate_safe(Request),
+        Err,
+        ( term_string(Err, ErrS), reply_json_dict(_{ok: false, message: ErrS}) )
+    ).
+
+
+handle_validate_safe(Request) :-
+    http_read_json_dict(Request, Dict, []),
+   
+    get_dict(nivel_id, Dict, NIR),
+    ( atom(NIR) -> NId = NIR ; atom_string(NId, NIR) ),
+   
+    catch(
+        with_output_to(string(_),
+            with_mutex(sns_mutex, guardar_triagem(NId))
+        ),
+        ErrG,
+        format(user_error, '[AVISO] guardar_triagem falhou: ~w~n', [ErrG])
+    ),
+   
+    atom_string(NId, NStr),
+    reply_json_dict(_{ok: true, nivel: NStr, guardado: true}).
+
+
+% ----------------------------------------------------------------
+% PROXIMO PASSO / PERGUNTA / RESULTADO
+% ----------------------------------------------------------------
+
+
+proximo_passo(Resp) :-
+    ( session_sintomas([S|_]) ->
+        construir_pergunta(S, Resp)
+    ;
+        todos_niveis(Niveis),
+        calcular_scores_finais(Niveis, Scores),
+        construir_resultado(Scores, Resp)
+    ).
+
+
+construir_pergunta(S, Resp) :-
+    ( sintoma(S, D0)    -> atom_string(D0, Desc) ; atom_string(S, Desc) ),
+    ( explicacao(S, E0) -> atom_string(E0, Expl) ; Expl = "" ),
+    atom_string(S, SStr),
+    todos_niveis(Niveis),
+    calcular_scores_finais(Niveis, Scores),
+    scores_para_json(Scores, nenhum, ScoresJ),
+    Resp = _{type:"pergunta", sintoma:SStr, descricao:Desc, explicacao:Expl, scores:ScoresJ}.
+
+
+construir_resultado(Scores, Resp) :-
+    score_maximo(Scores, NivelId0, ScoreMax),
+    ( ScoreMax < 0.05 -> NivelId = sem_sintomas_alarme ; NivelId = NivelId0 ),
+    nivel(NivelId, NivelTxt0, Rec0),
+    atom_string(NivelId,   NivelIdStr),
+    atom_string(NivelTxt0, NivelTxt),
+    atom_string(Rec0, Rec),
+    Pct is round(ScoreMax * 100),
+
+
+    scores_para_json(Scores, NivelId, ScoresJ),
+    construir_justificacao(NivelId, JustJ),
+
+
+    findall(S-CF0, (facto(S, CF0), CF0 > 0, sintoma(S, _)), SintsCF),
+    maplist(sint_json, SintsCF, SintsJ),
+
+
+    Resp = _{
+        type:          "resultado",
+        nivel_id:      NivelIdStr,
+        nivel:         NivelTxt,
+        recomendacao:  Rec,
+        confianca_pct: Pct,
+        scores:        ScoresJ,
+        justificacao:  JustJ,
+        sintomas:      SintsJ
+    }.
+
+
+scores_para_json([], _, []).
+scores_para_json([N-CF|T], NivelRec, [J|JT]) :-
+    nivel(N, NT0, _),
+    atom_string(N, NStr),
+    atom_string(NT0, NT),
+    P is round(CF * 100),
+    ( N == NivelRec -> Rec = true ; Rec = false ),
+    J = _{nivel_id:NStr, nivel_txt:NT, score_pct:P, recomendado:Rec},
+    scores_para_json(T, NivelRec, JT).
+
+
+sint_json(S-CF, J) :-
+    ( sintoma(S, D0) -> atom_string(D0, Desc) ; atom_string(S, Desc) ),
+    Pct is round(CF * 100),
+    J = _{desc:Desc, cf_pct:Pct}.
+
+
+% ----------------------------------------------------------------
+% JUSTIFICACAO JSON
+% ----------------------------------------------------------------
+
+
+construir_justificacao(sem_sintomas_alarme, J) :- !,
+    J = _{
+        tipo:               "sem_alarme",
+        texto:              "Nenhuma das regras de alarme foi activada. O nivel SEM ALARME foi atribuido por omissao (seguranca).",
+        regra_principal:    "",
+        certeza_pct:        0,
+        premissas:          [],
+        explicacao:         "",
+        regras_secundarias: []
+    }.
+
+
+construir_justificacao(NivelId, J) :-
+    findall(CF-IdR, (avaliar_regra(IdR, NivelId, CF), CF > 0), Regras),
+    ( Regras = [] ->
+        J = _{
+            tipo:               "fraco",
+            texto:              "Nivel determinado por combinacao de evidencias fracas.",
+            regra_principal:    "",
+            certeza_pct:        0,
+            premissas:          [],
+            explicacao:         "",
+            regras_secundarias: []
+        }
+    ;
+        keysort(Regras, Ord),
+        reverse(Ord, [MaxCF-RPrincipal|Outras]),
+        regra(RPrincipal, se(Premissas), _, _),
+        ( explicacao_regra(RPrincipal, ExplA) ->
+            atom_string(ExplA, Expl)
+        ;   Expl = "Regra gerada automaticamente (Parte B - ML)."
+        ),
+        atom_string(RPrincipal, RStr),
+        PctP is round(MaxCF * 100),
+        maplist(premissa_json, Premissas, PremJ),
+        maplist(regra_sec_json, Outras, OutrasJ),
+        J = _{
+            tipo:               "detalhe",
+            texto:              "",
+            regra_principal:    RStr,
+            certeza_pct:        PctP,
+            premissas:          PremJ,
+            explicacao:         Expl,
+            regras_secundarias: OutrasJ
+        }
+    ).
+
+
+premissa_json(nao(S), J) :- !,
+    ( sintoma(S, D0) -> atom_string(D0, Desc) ; atom_string(S, Desc) ),
+    J = _{presente: false, desc: Desc}.
+premissa_json(S, J) :-
+    ( sintoma(S, D0) -> atom_string(D0, Desc) ; atom_string(S, Desc) ),
+    J = _{presente: true, desc: Desc}.
+
+
+regra_sec_json(CF-Id, J) :-
+    Pct is round(CF * 100),
+    atom_string(Id, IdStr),
+    ( explicacao_regra(Id, E0) -> atom_string(E0, EStr) ; EStr = "" ),
+    J = _{id:IdStr, certeza_pct:Pct, explicacao:EStr}.
+
+
+% ----------------------------------------------------------------
+% UTILIDADES
+% ----------------------------------------------------------------
+
+
+score_max_val([], 0.0).
+score_max_val([_-CF|T], Max) :-
+    score_max_val(T, M2),
+    Max is max(CF, M2).
+
+
+% ----------------------------------------------------------------
+% ARRANQUE
+% ----------------------------------------------------------------
+
+
+:- initialization(main, main).
+
+
+main :-
+    Port = 8080,
+    http_server(http_dispatch, [port(Port)]),
+    format("~n========================================~n"),
+    format("  SNS24 Triagem - Parte A + Parte B~n"),
+    format("  http://localhost:~w~n", [Port]),
+    format("========================================~n"),
+    format("  Para parar: escreva  q  e prima Enter~n"),
+    format("========================================~n~n"),
+    aguardar_parar.
+
+
+% Bloqueia a thread principal a aguardar q/quit/exit/etc.
+aguardar_parar :-
+    read_line_to_string(user_input, Linha),
+    (   Linha == end_of_file
+    ->  halt(0)
+    ;   string_lower(Linha, LinhaLow),
+        (   member(LinhaLow, ["q","quit","parar","stop","exit","sair"])
+        ->  format("~nServidor parado. Porta ~w libertada.~n", [8080]),
+            halt(0)
+        ;   aguardar_parar
+        )
+    ).
+
+sistema_inferencia.pl:
+:- dynamic facto/2.
+
+
+todos_niveis([sem_sintomas_alarme, pouco_urgente, urgente, muito_urgente, emergencia]).
+limiar_saida(0.80).
+
+
+obter_ordem_sintomas(Sintomas) :-
+    ( predicate_property(ordem_sintomas_ml(_), defined) ->
+        ordem_sintomas_ml(Sintomas)
+    ;
+        ordem_sintomas(Sintomas)
+    ).
+
+
+% ----------------------------------------------------------------
+% PONTO DE ENTRADA
+% ----------------------------------------------------------------
+
+
+diagnostico(NivelId) :-
+    nl,
+    write('----------------------------------------------------'), nl,
+    write('Triagem iniciada. O sistema ira fazer perguntas.'), nl,
+    write('Primeiro responda se tem ou nao o sintoma:'), nl,
+    write('  s. = SIM (tem o sintoma)'), nl,
+    write('  n. = NAO (nao tem o sintoma)'), nl,
+    write('  t. = NAO SEI (desconhecimento total, CF=0.0)'), nl,
+    write('  p. = PORQUE esta pergunta?'), nl,
+    write('De seguida, ser-lhe-a pedida a certeza de 0 a 100.'), nl,
+    write('(Lembre-se: Terminar sempre as respostas com ponto final)'), nl,
+    write('----------------------------------------------------'), nl,
+    obter_ordem_sintomas(Sintomas),
+    todos_niveis(Niveis),
+    limiar_saida(Limiar),
+    perguntar_sintomas(Sintomas, Niveis, Limiar, NivelId).
+
+
+perguntar_sintomas([], Niveis, _, NivelId) :-
+    calcular_scores_finais(Niveis, Scores),
+    mostrar_resultado(Scores, NivelId).
+
+
+perguntar_sintomas([S|Resto], Niveis, Limiar, NivelId) :-
+    perguntar(S),
+    ( atingiu_limiar_nivel(Limiar) ->
+        calcular_scores_finais(Niveis, Scores),
+        mostrar_resultado(Scores, NivelId)
+    ;
+        perguntar_sintomas(Resto, Niveis, Limiar, NivelId)
+    ).
+
+
+atingiu_limiar_nivel(Limiar) :-
+    todos_niveis(Niveis),
+    calcular_scores_finais(Niveis, Scores),
+    member(_-CF, Scores),
+    CF >= Limiar, !.
+
+
+% ----------------------------------------------------------------
+% MOTOR DE REGRAS MYCIN PURO
+% ----------------------------------------------------------------
+
+
+% CF(nao-S) = -CF(S); sintoma nao perguntado => CF = 0.0
+cf_premissa(S, CF) :-
+    \+ functor(S, nao, 1),
+    ( facto(S, CF) -> true ; CF = 0.0 ).
+
+
+cf_premissa(nao(S), CF) :-
+    ( facto(S, CF_S) -> true ; CF_S = 0.0 ),
+    CF is -CF_S.
+
+
+avaliar_premissas([], CF, CF).
+avaliar_premissas([S|T], CF_Atual, CF_Final) :-
+    cf_premissa(S, CF_S),
+    CF_S > 0,
+    NovoCF is min(CF_Atual, CF_S),
+    avaliar_premissas(T, NovoCF, CF_Final).
+avaliar_premissas([S|_], _, 0) :-
+    cf_premissa(S, CF_S),
+    CF_S =< 0.
+
+
+% Limiar de ouro MYCIN: so dispara se CF_premissas > 0.20
+% CF_BaseRegra pode ser negativo (contra-evidencia)
+avaliar_regra(IdRegra, Nivel, CF_Final) :-
+    regra(IdRegra, se(Sintomas), entao(Nivel), CF_BaseRegra),
+    avaliar_premissas(Sintomas, 1.0, CF_Premissas),
+    CF_Premissas > 0.2,
+    CF_Final is CF_Premissas * CF_BaseRegra.
+
+
+% ----------------------------------------------------------------
+% COMBINACAO MYCIN - 3 RAMOS
+% ----------------------------------------------------------------
+
+
+calcular_scores_finais([], []).
+calcular_scores_finais([N|Ns], [N-CF_Final|Rest]) :-
+    findall(CF, avaliar_regra(_, N, CF), ListaCFs),
+    combinar_cfs(ListaCFs, CF_Final),
+    calcular_scores_finais(Ns, Rest).
+
+
+combinar_cfs([], 0.0).
+combinar_cfs([CF], CF) :- !.
+combinar_cfs([CF1, CF2 | T], Result) :-
+    combinar_dois_cfs(CF1, CF2, CF_Comb),
+    combinar_cfs([CF_Comb | T], Result).
+
+
+% Ramo 1: ambas positivas
+combinar_dois_cfs(CF1, CF2, Res) :-
+    CF1 >= 0, CF2 >= 0, !,
+    Res is CF1 + CF2 - (CF1 * CF2).
+
+
+% Ramo 2: ambas negativas
+combinar_dois_cfs(CF1, CF2, Res) :-
+    CF1 =< 0, CF2 =< 0, !,
+    Res is CF1 + CF2 + (CF1 * CF2).
+
+
+% Ramo 3: sinais opostos (conflito)
+combinar_dois_cfs(CF1, CF2, Res) :-
+    Denom is 1.0 - min(abs(CF1), abs(CF2)),
+    ( abs(Denom) < 1.0e-9 -> Res = 0.0
+    ; Res is (CF1 + CF2) / Denom
+    ).
+
+
+% ----------------------------------------------------------------
+% APRESENTACAO
+% ----------------------------------------------------------------
+
+
+score_maximo([N-S|Rest], BestN, BestS) :-
+    score_maximo_aux(Rest, N, S, BestN, BestS).
+
+
+score_maximo_aux([], BN, BS, BN, BS).
+score_maximo_aux([N-S|Rest], CurN, CurS, BestN, BestS) :-
+    ( S > CurS -> score_maximo_aux(Rest, N, S, BestN, BestS)
+    ; score_maximo_aux(Rest, CurN, CurS, BestN, BestS) ).
+
+
+barra_progresso(Score) :-
+    ( Score >= 0 ->
+        Blocos is round(Score * 10),
+        Char = '#'
+    ;
+        Blocos is round(abs(Score) * 10),
+        Char = 'v'
+    ),
+    Vazios is 10 - Blocos,
+    write('  ['),
+    imprimir_n_vezes(Blocos, Char),
+    imprimir_n_vezes(Vazios, '-'),
+    write('] ').
+
+
+imprimir_n_vezes(0, _) :- !.
+imprimir_n_vezes(N, C) :-
+    N > 0, write(C),
+    N1 is N - 1,
+    imprimir_n_vezes(N1, C).
+
+
+mostrar_resultado(Scores, NivelId) :-
+    score_maximo(Scores, NivelId0, ScoreMax),
+    ( ScoreMax =< 0.0 -> NivelId = sem_sintomas_alarme ; NivelId = NivelId0 ),
+    nivel(NivelId, NivelTexto, Recomendacao),
+    Pct is round(max(ScoreMax, 0.0) * 100),
+    nl,
+    write('========================================'), nl,
+    write('         RESULTADO DA TRIAGEM           '), nl,
+    write('========================================'), nl,
+    format('Nivel:        ~w~n', [NivelTexto]),
+    format('Confianca:    ~w%~n', [Pct]),
+    format('Recomendacao: ~w~n', [Recomendacao]),
+    nl,
+    write('Scores por nivel:'), nl,
+    mostrar_scores(Scores, NivelId),
+    nl,
+    mostrar_justificacao_final(NivelId),
+    write('========================================'), nl.
+
+
+mostrar_scores([], _).
+mostrar_scores([N-S|Rest], NivelRec) :-
+    nivel(N, NT, _),
+    Pct is round(S * 100),
+    ( N = NivelRec ->
+        format('  * ~w: ~w%~n', [NT, Pct]),
+        barra_progresso(S), write('<- recomendado'), nl
+    ;
+        format('    ~w: ~w%~n', [NT, Pct]),
+        barra_progresso(S), nl
+    ),
+    mostrar_scores(Rest, NivelRec).
+
+
+mostrar_justificacao_final(sem_sintomas_alarme) :- !,
+    write('Justificacao do Diagnostico:'), nl,
+    write('  Nenhuma das regras de alarme foi activada.'), nl,
+    write('  Nivel "SEM ALARME" atribuido por omissao (seguranca).'), nl.
+
+
+mostrar_justificacao_final(NivelId) :-
+    findall(CF-IdRegra, (avaliar_regra(IdRegra, NivelId, CF), CF > 0), RegrasAFavor),
+    findall(CF-IdRegra, (avaliar_regra(IdRegra, NivelId, CF), CF < 0), RegrasContra),
+    ( RegrasAFavor = [] ->
+        write('Justificacao do Diagnostico:'), nl,
+        write('  Nivel determinado por combinacao de evidencias fracas.'), nl
+    ;
+        keysort(RegrasAFavor, Ord),
+        reverse(Ord, [MaxCF-RegraPrincipal|OutrasRegras]),
+        regra(RegraPrincipal, se(Premissas), _, _),
+        ( explicacao_regra(RegraPrincipal, ExplClinica) -> true
+        ; ExplClinica = 'Regra gerada automaticamente por aprendizagem automatica (Parte B).'
+        ),
+        PctPrincipal is round(MaxCF * 100),
+        write('Justificacao do Diagnostico:'), nl,
+        format('  Regra principal [~w] activada com ~w% de certeza.~n', [RegraPrincipal, PctPrincipal]),
+        write('  Premissas confirmadas: '), write(Premissas), nl,
+        format('  Motivo clinico: ~w~n', [ExplClinica]),
+        ( OutrasRegras \= [] ->
+            nl,
+            write('  Regras secundarias a favor:'), nl,
+            mostrar_regras_secundarias(OutrasRegras)
+        ; true ),
+        ( RegrasContra \= [] ->
+            nl,
+            write('  Contra-evidencias que reduziram a confianca:'), nl,
+            mostrar_regras_secundarias(RegrasContra)
+        ; true )
+    ).
+
+
+mostrar_regras_secundarias([]).
+mostrar_regras_secundarias([CF-Id|Resto]) :-
+    Pct is round(CF * 100),
+    ( explicacao_regra(Id, Expl) ->
+        format('    [~w] ~w% - ~w~n', [Id, Pct, Expl])
+    ;
+        format('    [~w] ~w%~n', [Id, Pct])
+    ),
+    mostrar_regras_secundarias(Resto).
+
+treinar_exportar.py:
+import sys
+from datetime import datetime
+
+
+try:
+    import numpy as np
+    import pandas as pd
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.tree import DecisionTreeClassifier
+except ImportError:
+    print("[ERRO] Dependencias em falta. Execute: pip install pandas scikit-learn")
+    sys.exit(1)
+
+
+DATASET_FILE = 'triagens.csv'
+OUTPUT_FILE  = 'base_conhecimento_b.pl'
+RF_TREES     = 200
+DT_MAX_DEPTH = 4
+MIN_CF       = 0.60
+
+
+try:
+    df = pd.read_csv(DATASET_FILE)
+    MIN_SAMPLES = max(5, len(df) * 0.01)
+except FileNotFoundError:
+    print(f"[ERRO] {DATASET_FILE} nao encontrado. Corra primeiro: python gerar_dataset.py")
+    sys.exit(1)
+
+
+SINTOMAS = [
+    'sem_respiracao', 'sem_pulso', 'resp_dificuldade', 'hemorragia', 'inconsciente',
+    'convulsoes', 'dor_peito', 'dor_irradia', 'fala_dificil', 'fraqueza_lado',
+    'febre_alta', 'confusao', 'dor_abd', 'febre_bebe',
+    'tosse_febre', 'dor_persiste', 'vomitos', 'diarreia',
+    'dor_garganta', 'constipacao', 'dor_leve', 'febre_baixa', 'mal_estar'
+]
+
+
+DESC_SINTOMA = {
+    'sem_respiracao':   'paragem respiratoria',
+    'sem_pulso':        'paragem cardiaca',
+    'resp_dificuldade': 'dificuldade respiratoria grave',
+    'hemorragia':       'hemorragia incontrolavel',
+    'inconsciente':     'perda de consciencia',
+    'convulsoes':       'convulsoes activas',
+    'dor_peito':        'dor no peito',
+    'dor_irradia':      'dor com irradiacao',
+    'fala_dificil':     'dificuldade na fala',
+    'fraqueza_lado':    'fraqueza unilateral',
+    'febre_alta':       'febre alta (>39C)',
+    'confusao':         'confusao mental',
+    'dor_abd':          'dor abdominal intensa',
+    'febre_bebe':       'febre em bebe (<3 meses)',
+    'tosse_febre':      'tosse com febre',
+    'dor_persiste':     'dor persistente sem alivio',
+    'vomitos':          'vomitos repetidos',
+    'diarreia':         'diarreia grave',
+    'dor_garganta':     'dor de garganta',
+    'constipacao':      'constipacao',
+    'dor_leve':         'dor ligeira',
+    'febre_baixa':      'febre baixa',
+    'mal_estar':        'mal-estar geral',
+}
+
+
+NIVEL_LABELS = {
+    'emergencia':          'EMERGENCIA',
+    'muito_urgente':       'MUITO URGENTE',
+    'urgente':             'URGENTE',
+    'pouco_urgente':       'POUCO URGENTE',
+    'sem_sintomas_alarme': 'SEM ALARME',
+}
+LEVEL_ORDER = ['emergencia', 'muito_urgente', 'urgente', 'pouco_urgente', 'sem_sintomas_alarme']
+
+
+
+
+def gerar_explicacao(premises, level, cf, n_samples):
+    positivos = [p for p in premises if not p.startswith('nao(')]
+    negativos = [p[4:-1] for p in premises if p.startswith('nao(')]
+
+
+    partes = []
+    if positivos:
+        descs = [DESC_SINTOMA.get(s, s) for s in positivos]
+        partes.append('presenca de ' + ', '.join(descs))
+    if negativos:
+        descs = [DESC_SINTOMA.get(s, s) for s in negativos]
+        partes.append('ausencia de ' + ', '.join(descs))
+
+
+    condicao  = '; '.join(partes) if partes else 'padrao geral'
+    nivel_txt = NIVEL_LABELS.get(level, level)
+    cf_pct    = round(cf * 100)
+    texto = f"Padrao ML ({nivel_txt}, confianca={cf_pct}%, n={n_samples}): {condicao}."
+    return texto.replace("'", "''")
+
+
+
+
+def extrair_regras_dt(clf, feature_names, class_names):
+    tree        = clf.tree_
+    class_names = list(class_names)
+    regras      = []
+
+
+    def percorrer(node, premissas_atuais):
+        if tree.children_left[node] == -1:
+            total = int(tree.n_node_samples[node])
+            if total < MIN_SAMPLES:
+                return
+            vals       = tree.value[node][0]
+            val_sum    = float(np.sum(vals))
+            idx_classe = int(np.argmax(vals))
+            cf         = float(vals[idx_classe]) / val_sum
+            if cf < MIN_CF:
+                return
+            regras.append({
+                'premises':  list(premissas_atuais),
+                'level':     class_names[idx_classe],
+                'cf':        round(cf, 2),
+                'n_samples': total,
+            })
+            return
+
+
+        feat = feature_names[tree.feature[node]]
+        percorrer(tree.children_left[node],  premissas_atuais + [f'nao({feat})'])
+        percorrer(tree.children_right[node], premissas_atuais + [feat])
+
+
+    percorrer(0, [])
+    return regras
+
+
+
+
+def premises_to_prolog(premises):
+    return ', '.join(premises)
+
+
+
+
+def train_and_export():
+    df = pd.read_csv(DATASET_FILE)
+
+
+    available_syms = [s for s in SINTOMAS if s in df.columns]
+    X = df[available_syms].fillna(0).astype(int)
+    y = df['nivel']
+    n_examples = len(df)
+
+
+    print(f"[OK] Dataset carregado: {n_examples} exemplos, {len(available_syms)} sintomas")
+    print(f"     Distribuicao: {dict(y.value_counts())}")
+
+
+    print(f"\n[RF] A treinar Random Forest ({RF_TREES} arvores)...")
+    rf = RandomForestClassifier(n_estimators=RF_TREES, random_state=42, class_weight='balanced')
+    rf.fit(X, y)
+
+
+    importances_raw = dict(zip(available_syms, rf.feature_importances_))
+
+
+    CLINICAL_BONUS = {
+        'sem_respiracao': 0.50, 'sem_pulso': 0.50, 'resp_dificuldade': 0.50,
+        'hemorragia': 0.50, 'inconsciente': 0.50, 'convulsoes': 0.50,
+        'dor_peito': 0.30, 'dor_irradia': 0.30, 'fala_dificil': 0.30,
+        'fraqueza_lado': 0.30, 'confusao': 0.30,
+        'febre_alta': 0.10, 'febre_bebe': 0.10, 'dor_abd': 0.10,
+        'tosse_febre': 0.10, 'dor_persiste': 0.10,
+        'vomitos': 0.10, 'diarreia': 0.10, 'dor_garganta': 0.10,
+    }
+
+
+    importances = [
+        (s, importances_raw[s] + CLINICAL_BONUS.get(s, 0.0))
+        for s in available_syms
+    ]
+    importances_sorted = sorted(importances, key=lambda x: -x[1])
+    ordered_symptoms   = [s for s, _ in importances_sorted]
+
+
+    print("[RF] Feature importances (Top 10, com bonus clinico):")
+    for s, imp in importances_sorted[:10]:
+        bar = '#' * min(round(imp * 100), 60)
+        print(f"     {s:<22} {imp:.4f}  {bar}")
+
+
+    print(f"\n[DT] A treinar Decision Tree (max_depth={DT_MAX_DEPTH}, min_samples_leaf={MIN_SAMPLES})...")
+    dt = DecisionTreeClassifier(
+        max_depth=DT_MAX_DEPTH,
+        min_samples_leaf=MIN_SAMPLES,
+        random_state=42,
+        class_weight='balanced'
+    )
+    dt.fit(X, y)
+
+
+    regras_dt = extrair_regras_dt(dt, available_syms, dt.classes_)
+
+
+    # A DT aprende apenas padroes positivos do dataset; nao gera contra-evidencias.
+    # As contra-evidencias MYCIN estao hardcoded na base_conhecimento_a.pl (r_c_*).
+    level_priority = {lv: i for i, lv in enumerate(LEVEL_ORDER)}
+    regras_dt.sort(key=lambda r: (level_priority.get(r['level'], 99), -r['cf']))
+
+
+    print(f"[DT] {len(regras_dt)} regras extraidas (CF>={MIN_CF}, n>={MIN_SAMPLES}):")
+    for r in regras_dt:
+        print(f"     {r['level']:<22} CF={r['cf']:.2f}  n={r['n_samples']:>3}  premissas={r['premises']}")
+
+
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+
+    lines = [
+        f'% BASE DE CONHECIMENTO B - Triagem SNS24 (Gerada por ML)',
+        f'% Gerado automaticamente em: {now}',
+        f'% Dataset: {DATASET_FILE} ({n_examples} exemplos)',
+        f'% Modelos: Random Forest ({RF_TREES} arvores), Decision Tree (max_depth={DT_MAX_DEPTH})',
+        f'% Filtros: CF >= {MIN_CF}, n_amostras >= {MIN_SAMPLES}',
+        f'% Nota: contra-evidencias MYCIN (CF negativos) estao em base_conhecimento_a.pl',
+        '',
+        ':- multifile regra/4.',
+        ':- multifile explicacao_regra/2.',
+        ':- discontiguous regra/4.',
+        ':- discontiguous explicacao_regra/2.',
+        '',
+        '% Sintomas ordenados por feature importance (RF) + bonus clinico.',
+    ]
+
+
+    chunks = [ordered_symptoms[i:i+4] for i in range(0, len(ordered_symptoms), 4)]
+    lines.append('ordem_sintomas_ml([')
+    for i, chunk in enumerate(chunks):
+        sep = '' if i == len(chunks) - 1 else ','
+        lines.append('    ' + ', '.join(chunk) + sep)
+    lines.append(']).')
+    lines.append('')
+
+
+    lines += [
+        '% ----------------------------------------------------------------',
+        '% REGRAS GERADAS PELA DECISION TREE',
+        '% IDs dt_NNN distinguem-se dos r_XXX manuais da Parte A.',
+        '% ----------------------------------------------------------------',
+        '',
+    ]
+
+
+    if not regras_dt:
+        lines.append(f'% [AVISO] Nenhuma regra extraida. Tente reduzir MIN_CF ({MIN_CF}) ou MIN_SAMPLES ({MIN_SAMPLES}).')
+        lines.append('')
+    else:
+        rules_by_level = {lv: [] for lv in LEVEL_ORDER}
+        for r in regras_dt:
+            if r['level'] in rules_by_level:
+                rules_by_level[r['level']].append(r)
+
+
+        counter = 1
+        for lv in LEVEL_ORDER:
+            group = rules_by_level[lv]
+            if not group:
+                continue
+            label = NIVEL_LABELS.get(lv, lv.upper())
+            lines.append(f'% {label}')
+            for r in group:
+                rule_id  = f'dt_{counter:03d}'
+                prolog_p = premises_to_prolog(r['premises'])
+                expl     = gerar_explicacao(r['premises'], lv, r['cf'], r['n_samples'])
+
+
+                lines.append(f'% CF={r["cf"]:.2f}, n={r["n_samples"]}')
+                lines.append(f'regra({rule_id}, se([{prolog_p}]), entao({lv}), {r["cf"]}).')
+                lines.append(f"explicacao_regra({rule_id}, '{expl}').")
+                lines.append('')
+                counter += 1
+
+
+    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(lines) + '\n')
+
+
+    print(f"\n[OK] Exportado: {OUTPUT_FILE}")
+    print(f"     {len(regras_dt)} regras novas | {len(ordered_symptoms)} sintomas ordenados")
+
+
+
+
+if __name__ == '__main__':
+    train_and_export()
+
+
+Anexo B
+CONTRATO DE GRUPO Projecto 1 - Sistemas Inteligentes de Apoio à Decisão Universidade do Minho, Escola de Ciências - Semestre 2 2025/2026
+Elementos do Grupo
+Nome
+Número
+Alexandr Tchikoulaev
+A103625
+André Pinto
+A106825
+João Alves
+A102394
+Rui Silva
+A106831
+
+
+1. Compromisso de Participação
+Todos os elementos do grupo comprometem-se a participar activamente no desenvolvimento do projecto, contribuindo para a análise do problema, aquisição de conhecimento e desenvolvimento técnico das componentes que lhes forem atribuídas.
+2. Meios de Comunicação
+A comunicação entre os elementos do grupo é realizada através de mensagens no WhatsApp para assuntos do dia-a-dia e através de reuniões em formato online via Discord para discussões mais estruturadas.
+3. Reuniões
+O grupo estabelece uma reunião semanal após a aula prática, destinada a sincronizar o progresso de cada elemento, identificar bloqueios e definir as tarefas para a semana seguinte.
+4. Resolução de Incumprimento
+Caso um elemento não cumpra as tarefas acordadas, o grupo abordará directamente o elemento em questão na reunião seguinte, identificando o problema e estabelecendo um prazo para a conclusão do trabalho em falta até à reunião subsequente.
+
+
+5. Assinaturas
+Ao assinar este documento, cada elemento confirma que leu, compreendeu e aceita os termos aqui estabelecidos.
+ 
+Alexandr Tchikoulaev Alexandr Tchikoulaev Data: // 20-2-2026
+André Pinto André Pinto Data: // 20-2-2026
+João Alves João Alves Data: // 20-2-2026
+Rui Silva Rui Silva Data: // 20-2-2026
+
+
+Bibliografia
+[1] Buchanan, B. G., & Duda, R. O. (1982). Principles of Rule-Based Expert Systems. (Technical Report No. HPP-82-14). Stanford University, Heuristic Programming Project / Fairchild Camera and Instrument Corporation. Recuperado de https://doi.org/10.1016/S0065-2458(08)60129-1 
+[2] Russell, S. J. (2010). Artificial intelligence a modern approach. Pearson Education, Inc..
+[3] SPMS - Serviços Partilhados do Ministério da Saúde. (2022). Formação: Introdução ao Sistema de Triagem Altitude (Versão 4.0). Material de suporte fornecido no âmbito da unidade curricular de SIAD, Universidade do Minho. 
+[4] Pedregosa, F., Varoquaux, G., Gramfort, A., Michel, V., Thirion, B., Grisel, O., ... & Duchesnay, É. (2011). Scikit-learn: Machine learning in Python. the Journal of machine Learning research, 12, 2825-2830. 
+[5] Giarratano, J. C., & Riley, G. (1989). Expert systems: principles and programming. Brooks/Cole Publishing Co.. 
+[6] Wielemaker, J., Schrijvers, T., Triska, M., & Lager, T. (2012). SWI-Prolog. Theory and Practice of Logic Programming, 12(1-2), 67-96. Recuperado de https://www.swi-prolog.org/ 
+[7] McKinney, W. (2010). Data structures for statistical computing in Python. scipy, 445(1), 51-56.
