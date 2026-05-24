@@ -1,6 +1,6 @@
 """
 P2 - SNS24 Chatbot com RAG + Ollama + Integração MYCIN
-Porta: 8081  |  Modelo: llama3.2:3b
+Porta: 8082  |  Modelo: llama3.2:3b
 RAG: construído automaticamente a partir de base_conhecimento_a.pl + base_conhecimento_b.pl
 
 Iniciar: python chatbot_server.py
@@ -292,26 +292,43 @@ SINTOMAS_KEYWORDS: dict[str, list[str]] = {
     "diarreia":         ["diarreia", "fezes líquidas", "diarreia grave", "dejecções líquidas",
                          "dejeções líquidas"],
     "dor_garganta":     ["dor de garganta", "garganta a doer", "dificuldade em engolir",
-                         "garganta inflamada", "amígdalas", "engolir dói"],
+                         "garganta inflamada", "amígdalas", "engolir dói",
+                         "garganta dói", "garganta doi", "doi a garganta",
+                         "doi me a garganta", "doi-me a garganta",
+                         "dói a garganta", "dói-me a garganta",
+                         "dói na garganta", "doi na garganta",
+                         "dor na garganta", "dói garganta",
+                         "um bocado a garganta", "bocado a garganta",
+                         "garganta a doer um bocado", "garganta a doer um pouco"],
     "constipacao":      ["constipado", "nariz entupido", "tosse ligeira", "ranho",
                          "sintomas de constipação", "resfriado", "pingo no nariz",
                          "nariz a pingar", "tenho tosse", "sinto tosse", "com tosse",
                          "tosse seca", "tosse produtiva"],
     "dor_leve":         ["dor ligeira", "dor suave", "desconforto ligeiro", "dói um pouco",
                          "dor leve", "dor moderada", "dor de cabeça ligeira",
-                         "dor de cabeça", "cefaleia"],
+                         "dor de cabeça", "cefaleia",
+                         "doi um bocado", "dói um bocado",
+                         "doi me um bocado", "dói-me um bocado",
+                         "dói-me um pouco", "doi me um pouco",
+                         "um bocado a doer"],
     "febre_baixa":      ["febre baixa", "temperatura ligeiramente elevada",
                          "febre de 37", "febre de 38", "37 graus", "37.5", "38 graus",
                          "temperatura a subir um pouco",
                          "febre mas não", "febre mas nao",
+                         "febre, mas não", "febre, mas nao",
                          "febre ligeira", "febre moderada", "alguma febre",
                          "pouca febre", "um pouco de febre", "febre não alta",
-                         "febre nao alta", "febre não muito", "febre nao muito"],
-    "mal_estar":        ["mal-estar", "mal estar", "indisposto", "não me sinto bem",
+                         "febre nao alta", "febre não muito", "febre nao muito",
+                         "um bocado de febre", "bocado de febre",
+                         "pouco de febre", "febrezinha"],
+    "mal_estar":        ["mal-estar", "mal estar", "mau estar", "mau-estar",
+                         "indisposto", "não me sinto bem",
                          "cansado sem motivo", "indisposição geral", "sinto-me mal",
-                         "não estou bem", "sinto mal estar", "mal disposto",
-                         "mal-disposto", "indisposta", "mal disposta",
-                         "sinto-me mal disposto", "meio indisposto"],
+                         "não estou bem", "sinto mal estar", "sinto mau estar",
+                         "mal disposto", "mal-disposto", "indisposta", "mal disposta",
+                         "sinto-me mal disposto", "meio indisposto",
+                         "sinto-me indisposto", "sinto-me indisposta",
+                         "não me sinto nada bem", "nao me sinto nada bem"],
     "rigidez_nuca":          ["rigidez da nuca", "nuca rígida", "pescoço rígido",
                               "não dobra a nuca", "nuca dura", "pescoço não dobra",
                               "não encosta o queixo ao peito", "nuca não dobra"],
@@ -486,7 +503,9 @@ def e_resposta_simples(text: str) -> Optional[bool]:
            # intensificadores e afirmações indiretas — mapeados deterministicamente, sem LLM
            "muito", "bastante", "claramente", "definitivamente", "totalmente",
            "absolutamente", "obviamente", "óbvio", "obvio", "sem dúvida", "sem duvida",
-           "tenho sim", "claro que sim"}
+           "tenho sim", "claro que sim",
+           # afirmações suaves — tratadas como sim para não perder sintomas
+           "acho que sim", "creio que sim", "parece que sim", "julgo que sim"}
     NAO = {"não", "nao", "n", "no", "nunca", "nem", "negativo",
            "não tenho", "nao tenho", "não sinto", "nao sinto",
            "não tive", "nao tive", "sem", "jamais",
@@ -520,7 +539,7 @@ def e_resposta_simples(text: str) -> Optional[bool]:
 _INCERTO_PALAVRAS = {
     "talvez", "não sei", "nao sei", "talvez sim", "talvez não", "talvez nao",
     "mais ou menos", "possivelmente", "não tenho a certeza", "nao tenho a certeza",
-    "incerto", "incerta", "pode ser", "acho que sim", "acho que não", "acho que nao",
+    "incerto", "incerta", "pode ser", "acho que não", "acho que nao",
     "não tenho certeza", "nao tenho certeza", "não tenho a certeza",
     # Frequência intermitente: sintoma presente "às vezes" não é confirmação clínica
     "de vez em quando", "às vezes", "as vezes", "por vezes",
@@ -538,6 +557,8 @@ _PORQUE_PALAVRAS = {
     "para que quer saber", "pra que", "que tem a ver", "explica",
     "o que significa", "não entendo", "nao entendo",
     "não percebo", "nao percebo", "por que razão", "por que motivo",
+    "porque?", "porque isso", "porque é que", "porque e que",
+    "não compreendo", "nao compreendo", "pode explicar", "o que quer dizer",
 }
 
 def e_intencao_porque(text: str) -> bool:
@@ -1050,11 +1071,13 @@ async def chat_message(body: MsgBody):
     if resp_simples is not None and ultima_perg:
         if ultima_perg not in session["sintomas"]:
             session["sintomas"][ultima_perg] = "sim" if resp_simples else "nao"
-        session["perguntas_feitas"].add(ultima_perg)  # marcar como feita só após resposta clara
-    elif e_resposta_incerta(user_msg) and ultima_perg:
-        # Resposta incerta ("talvez", "não sei") — não regista o sintoma,
-        # mas marca como perguntado para não repetir a mesma questão
         session["perguntas_feitas"].add(ultima_perg)
+    elif ultima_perg:
+        # Resposta livre, descritiva ou incerta — marcar como perguntada para não repetir.
+        # Exceção: mensagens muito curtas com "?" são provavelmente pedidos de esclarecimento
+        # não detetados por e_intencao_porque; não marcar para que a pergunta se repita.
+        if not (len(user_msg.strip()) <= 20 and "?" in user_msg):
+            session["perguntas_feitas"].add(ultima_perg)
 
     # 2. Detecção de sintomas via keywords (llama3.2:3b produz alucinações na
     # extração estruturada, por isso confiamos apenas nas keywords que são fiáveis)
@@ -1188,8 +1211,8 @@ if __name__ == "__main__":
     print("\n" + "=" * 55)
     print("  SNS24 Chatbot P2 - RAG + Ollama + MYCIN")
     print(f"  Modelo : {MODEL}")
-    print(f"  API    : http://localhost:8081")
+    print(f"  API    : http://localhost:8082")
     print(f"  RAG    : {len(CONHECIMENTO)} documentos carregados")
     print(f"           (base_conhecimento_a.pl + base_conhecimento_b.pl)")
     print("=" * 55 + "\n")
-    uvicorn.run(app, host="0.0.0.0", port=8081, reload=False)
+    uvicorn.run(app, host="0.0.0.0", port=8082, reload=False)
