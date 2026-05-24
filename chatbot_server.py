@@ -310,7 +310,16 @@ SINTOMAS_KEYWORDS: dict[str, list[str]] = {
                          "doi um bocado", "dói um bocado",
                          "doi me um bocado", "dói-me um bocado",
                          "dói-me um pouco", "doi me um pouco",
-                         "um bocado a doer"],
+                         "um bocado a doer",
+                         # expressões coloquiais de dor geral
+                         "muitas dores", "muita dor", "só dores", "so dores",
+                         "tenho dores", "sinto dores", "com dores",
+                         "dores no corpo", "dores pelo corpo",
+                         "dores generalizadas", "dores musculares",
+                         "dores nos músculos", "dores nos musculos",
+                         "muito dores", "bastantes dores",
+                         "cheio de dores", "cheia de dores",
+                         "dores em todo", "dores por todo"],
     "febre_baixa":      ["febre baixa", "temperatura ligeiramente elevada",
                          "febre de 37", "febre de 38", "37 graus", "37.5", "38 graus",
                          "temperatura a subir um pouco",
@@ -370,7 +379,7 @@ SINTOMAS_PT: dict[str, str] = {
     "diarreia":              "Diarreia grave",
     "dor_garganta":          "Dor de garganta",
     "constipacao":           "Constipação",
-    "dor_leve":              "Dor ligeira",
+    "dor_leve":              "Dores",
     "febre_baixa":           "Febre baixa (<38°C)",
     "mal_estar":             "Mal-estar geral",
     "rigidez_nuca":          "Rigidez da nuca",
@@ -379,6 +388,25 @@ SINTOMAS_PT: dict[str, str] = {
     "dor_cabeca_subita":     "Dor de cabeça súbita e intensa",
     "visao_alterada":        "Alteração súbita da visão",
 }
+
+# Labels específicos para dor_leve consoante a localização descrita pelo utilizador.
+# Cada entrada: (lista de keywords trigger, label a mostrar na sidebar).
+# A primeira correspondência ganha; se nenhuma bater, mantém "Dores".
+DOR_LEVE_LABELS: list[tuple] = [
+    (["dor de cabeça", "dores de cabeça", "cefaleia", "dor na cabeça",
+      "dói a cabeça", "doi a cabeça", "cabeça a doer"],          "Dor de cabeça"),
+    (["dor nas costas", "dores nas costas", "dor na coluna",
+      "costas a doer", "dor lombar"],                             "Dor nas costas"),
+    (["dor muscular", "dores musculares", "músculos a doer",
+      "dores nos músculos", "dores nos musculos"],                "Dores musculares"),
+    (["dor nas pernas", "pernas a doer", "dor nas pernas",
+      "dor nos membros", "membros a doer"],                       "Dores nos membros"),
+    (["dor no pescoço", "pescoço a doer", "dor no pescoco"],      "Dor no pescoço"),
+    (["dor no peito ligeira", "peito a doer ligeiramente"],        "Dor no peito (ligeira)"),
+    (["dor de dentes", "dentes a doer", "dor dentária"],          "Dor de dentes"),
+    (["dor nos ouvidos", "ouvidos a doer", "dor de ouvidos"],     "Dor de ouvidos"),
+    (["dor nos olhos", "olhos a doer"],                           "Dor nos olhos"),
+]
 
 SINTOMAS_EMERGENCIA = {"sem_respiracao", "sem_pulso", "resp_dificuldade",
                        "hemorragia", "inconsciente", "convulsoes"}
@@ -467,7 +495,7 @@ DESCRICAO_PERGUNTA: dict[str, str] = {
     "diarreia":              "Tem diarreia grave ou sinais de desidratação?",
     "dor_garganta":          "Tem dor de garganta com dificuldade em engolir?",
     "vomitos":               "Tem vómitos repetidos que impedem de beber líquidos?",
-    "dor_leve":              "Tem alguma dor, mesmo que ligeira?",
+    "dor_leve":              "Tem alguma dor ou desconforto físico?",
     "febre_baixa":           "Tem febre baixa, entre 37 e 38 graus?",
     "constipacao":           "Tem sintomas de constipação, como nariz entupido ou tosse ligeira?",
     "mal_estar":             "Sente mal-estar geral ou indisposição?",
@@ -1011,6 +1039,7 @@ async def start_chat():
         "ultima_pergunta":  None,   # sintoma sobre o qual se perguntou por último
         "perguntas_feitas": set(),  # sintomas já perguntados (evita repetições)
         "n_trocas":         0,      # número de turnos de conversa
+        "sintomas_labels":  {},     # labels específicos (ex: dor_leve → "Dor de cabeça")
     }
     boas_vindas = (
         "Olá! Sou o assistente de triagem do SNS24. Estou aqui para o ajudar a perceber "
@@ -1041,8 +1070,9 @@ async def chat_message(body: MsgBody):
         rec   = _corrigir_acentos(session["resultado_prolog"].get("recomendacao", ""))
         nivel = session["resultado_prolog"].get("nivel", "")
         sintomas_json = [
-            {"id": s, "nome": SINTOMAS_PT.get(s, s), "presente": v == "sim"}
+            {"id": s, "nome": lbl, "presente": v == "sim"}
             for s, v in session["sintomas"].items()
+            for lbl in (session.get("sintomas_labels", {}).get(s) or [SINTOMAS_PT.get(s, s)])
         ]
         return {
             "message": (
@@ -1061,13 +1091,24 @@ async def chat_message(body: MsgBody):
         pergunta = DESCRICAO_PERGUNTA.get(ultima_perg, "Pode responder à pergunta anterior?")
         resposta = f"Peço esta informação porque: {expl}\n\n{pergunta}"
         session["history"].append({"role": "assistant", "content": resposta})
-        sintomas_json = [{"id": s, "nome": SINTOMAS_PT.get(s, s), "presente": v == "sim"}
-                         for s, v in session["sintomas"].items()]
+        sintomas_json = [
+            {"id": s, "nome": lbl, "presente": v == "sim"}
+            for s, v in session["sintomas"].items()
+            for lbl in (session.get("sintomas_labels", {}).get(s) or [SINTOMAS_PT.get(s, s)])
+        ]
         return {"message": resposta, "sintomas": sintomas_json,
                 "triagem_feita": False, "resultado_prolog": None}
 
     # 1. Se a mensagem é um sim/não simples à última pergunta, mapeá-la directamente
     resp_simples = e_resposta_simples(user_msg)
+    # Salvaguarda: se resp_simples=True veio apenas do prefixo "tenho/sinto/..."
+    # mas a deteção de keywords encontra um sintoma DIFERENTE de ultima_perg,
+    # o utilizador está a descrever outra coisa ("tenho dor de cabeça" ≠ confirmar febre).
+    if resp_simples is True and ultima_perg:
+        kw_pre = detectar_sintomas_keywords(user_msg)
+        outros = [s for s in kw_pre["presentes"] if s != ultima_perg]
+        if outros:
+            resp_simples = None  # tratar como descrição, não confirmação
     if resp_simples is not None and ultima_perg:
         if ultima_perg not in session["sintomas"]:
             session["sintomas"][ultima_perg] = "sim" if resp_simples else "nao"
@@ -1085,6 +1126,18 @@ async def chat_message(body: MsgBody):
     for s in kw["presentes"]:
         if s not in session["sintomas"]:
             session["sintomas"][s] = "sim"
+    # Labels específicos para dor_leve: acumular (não substituir) por localização
+    if "dor_leve" in kw["presentes"] or session["sintomas"].get("dor_leve") == "sim":
+        labels = session["sintomas_labels"].setdefault("dor_leve", [])
+        tl = user_msg.lower()
+        achou_especifico = False
+        for kws, lbl in DOR_LEVE_LABELS:
+            if any(k in tl for k in kws) and lbl not in labels:
+                labels.append(lbl)
+                achou_especifico = True
+        # dor_leve recém-detectado sem localização específica → label genérico
+        if "dor_leve" in kw["presentes"] and not achou_especifico and not labels:
+            labels.append("Dores")
     for s in kw["ausentes"]:
         if s not in session["sintomas"]:
             session["sintomas"][s] = "nao"
@@ -1172,8 +1225,9 @@ async def chat_message(body: MsgBody):
     resposta = await gerar_resposta(session, user_msg, resultado_prolog, prox_sint)
 
     sintomas_json = [
-        {"id": s, "nome": SINTOMAS_PT.get(s, s), "presente": v == "sim"}
+        {"id": s, "nome": lbl, "presente": v == "sim"}
         for s, v in session["sintomas"].items()
+        for lbl in (session.get("sintomas_labels", {}).get(s) or [SINTOMAS_PT.get(s, s)])
     ]
 
     return {

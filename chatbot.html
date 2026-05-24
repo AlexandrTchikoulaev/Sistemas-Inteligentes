@@ -261,8 +261,8 @@ html, body {
   font-family: var(--sans); font-size: 12.5px; font-weight: 700;
   padding: 7px 16px; border-radius: 8px;
   border: 1.5px solid var(--purple); color: var(--purple);
-  background: #ede9fe; cursor: pointer; text-decoration: none;
-  display: none; align-items: center; gap: 6px; transition: all .13s;
+  background: #ede9fe; cursor: pointer;
+  display: flex; align-items: center; gap: 6px; transition: all .13s;
 }
 .btn-nova-topbar:hover { background: #ddd6fe; }
 
@@ -567,8 +567,6 @@ function mostrarResultado(res) {
   // Substituir input pelo botão de reinício
   document.getElementById('input-row').style.display    = 'none';
   document.getElementById('btn-reiniciar').style.display = 'flex';
-  const topbarBtn = document.getElementById('btn-nova-topbar');
-  if (topbarBtn) topbarBtn.style.display = 'flex';
 
   const el = document.getElementById('resultado-content');
   if (!res || res.type !== 'resultado') {
@@ -603,11 +601,9 @@ async function reiniciarChat() {
   document.getElementById('resultado-content').innerHTML =
     '<div class="res-vazio">Aguarda resposta completa.</div>';
 
-  // Esconder botões de reinício, mostrar botão de início
-  document.getElementById('btn-reiniciar').style.display  = 'none';
-  document.getElementById('input-row').style.display      = 'none';
-  const topbarBtn = document.getElementById('btn-nova-topbar');
-  if (topbarBtn) topbarBtn.style.display = 'none';
+  // Esconder botão de reinício da input-area
+  document.getElementById('btn-reiniciar').style.display = 'none';
+  document.getElementById('input-row').style.display     = 'none';
 
   // Iniciar nova sessão directamente (sem mostrar btn-start de novo)
   await iniciarChat();
