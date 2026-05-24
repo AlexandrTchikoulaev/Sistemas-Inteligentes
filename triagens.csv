@@ -370,3 +370,4 @@ sem_respiracao,sem_pulso,resp_dificuldade,hemorragia,inconsciente,convulsoes,dor
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,0,pouco_urgente
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,pouco_urgente
 0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,muito_urgente
+0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,1,0,0,muito_urgente

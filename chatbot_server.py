@@ -279,7 +279,11 @@ SINTOMAS_KEYWORDS: dict[str, list[str]] = {
                          "acima de 39", "mais de 39", "39.5", "40.5"],
     "dor_abd":          ["dor abdominal", "dor de barriga", "barriga a doer muito",
                          "dor no abdómen", "abdómen rígido", "dor de estômago intensa",
-                         "dor na barriga", "barriga a doer", "estômago a doer muito"],
+                         "dor na barriga", "barriga a doer", "estômago a doer muito",
+                         "dores abdominais", "dores na barriga", "dores no abdómen",
+                         "dores de barriga", "dores no estômago", "dores no ventre",
+                         "abdómen a doer", "sinto dores abdominais", "muitas dores abdominais",
+                         "dores abdominais fortes", "dores abdominais intensas"],
     "febre_bebe":       ["bebé com febre", "bebe com febre", "recém-nascido com febre",
                          "filho bebé febre", "lactente com febre", "bebé tem febre"],
     "tosse_febre":      ["tosse com febre", "tosse e febre", "febre com tosse", "tosse febril",
@@ -561,6 +565,13 @@ def e_resposta_simples(text: str) -> Optional[bool]:
     for w in ["não ", "nao ", "nunca "]:
         if t.startswith(w) and len(t) < 55:
             return False
+    # Negação no FINAL: "acima de 39 graus não", "febre não", "39 graus nao"
+    # Frases curtas que terminam em "não/nao" sem marcadores de incerteza são negações claras.
+    _INCERTO_INICIO = {"talvez", "pode ser", "não sei se", "nao sei se", "acho que não", "acho que nao"}
+    for w in [" não", " nao", " nunca"]:
+        if t.endswith(w) and len(t) < 40:
+            if not any(t.startswith(u) for u in _INCERTO_INICIO):
+                return False
     return None
 
 
